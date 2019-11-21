@@ -18,7 +18,18 @@ union semun {
     struct seminfo *__buf ;/* cmd = IPC_INFO (sous Linux) */
 };
 
-/* Structures des opérations */
+typedef struct{ 
+    int numeroZone;
+    char* titre;
+    char* createur;
+    char* texte;
+} zone;
+
+typedef struct {
+    zone zones[10];
+} principale;
+
+/* Structure des opérations */
 
 struct sembuf op[] = {
     { 0, -1, SEM_UNDO }, // P
