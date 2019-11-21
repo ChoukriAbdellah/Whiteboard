@@ -3,11 +3,20 @@
 
 #include <sys/sem.h>
 
+// Le fichier utilisé pour les sémaphores
+#define FICHIER_SEMAPHORES "./semaphores"
+
 // Le fichier utilisé en tant que segment partagé
 #define FICHIER_PARTAGE "./segment-memoire"
 
 // L'entier commun pour calculer la clé
 #define ENTIER_CLE 35
+
+// L'entier commun pour calculer la clé
+#define CLE_SEMAPHORES 35
+
+// Nombre de zones max
+#define NB_ZONES_MAX 10
 
 /* Union */
 
