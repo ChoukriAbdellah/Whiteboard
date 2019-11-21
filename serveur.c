@@ -87,7 +87,6 @@ void initZones(char* fichier_zones, int entier_cle) {
 
     printf("Serveur: Segment détaché.\n");
 
-
 }
 
 
@@ -101,11 +100,7 @@ int main(int argc, char **argv){
     int nbZones = atoi(argv[1]);*/
 
     initSemaphores(FICHIER_SEMAPHORES, CLE_SEMAPHORES);
-    initZones(FICHIER_PARTAGE, ENTIER_CLE);
+    initZones(FICHIER_PARTAGE, CLE_PARTAGE);
     
-
-   
-    
-
     return 0;
 }

@@ -3,29 +3,22 @@
 
 #include <sys/sem.h>
 
-// Le fichier utilisé pour les sémaphores
-#define FICHIER_SEMAPHORES "./semaphores"
-
-// Le fichier utilisé en tant que segment partagé
-#define FICHIER_PARTAGE "./segment-memoire"
-
-// L'entier commun pour calculer la clé
-#define ENTIER_CLE 35
-
-// L'entier commun pour calculer la clé
-#define CLE_SEMAPHORES 35
-
 // Nombre de zones max
 #define NB_ZONES_MAX 10
 
-/* Union */
+// Le fichier utilisé pour les sémaphores
+#define FICHIER_SEMAPHORES "./semaphores"
 
-union semun {
-    int val; /* cmd = SETVAL */
-    struct semid_ds *buf; /* cmd = IPC_STAT ou IPC_SET */
-    unsigned short  *array;  /* cmd = GETALL ou SETALL */
-    struct seminfo *__buf ;/* cmd = IPC_INFO (sous Linux) */
-};
+// Le fichier utilisé pour le segment de mémoire partagée
+#define FICHIER_PARTAGE "./segment-memoire"
+
+// L'entier commun pour calculer la clé utilisée pour le segment de mémoire partagée
+#define CLE_PARTAGE 35
+
+// L'entier commun pour calculer la clé utilisée pour le tableau de sémaphores
+#define CLE_SEMAPHORES 35
+
+/* Structures à partager dans le segment */
 
 typedef struct{ 
     int numeroZone;
@@ -38,8 +31,17 @@ typedef struct {
     zone zones[10];
 } principale;
 
-/* Structure des opérations */
+/* Structure utiles aux sémaphores */
 
+// Union
+union semun {
+    int val; /* cmd = SETVAL */
+    struct semid_ds *buf; /* cmd = IPC_STAT ou IPC_SET */
+    unsigned short  *array;  /* cmd = GETALL ou SETALL */
+    struct seminfo *__buf ;/* cmd = IPC_INFO (sous Linux) */
+};
+
+// Operations
 struct sembuf op[] = {
     { 0, -1, SEM_UNDO }, // P
     { 0, 1, SEM_UNDO }, // V
