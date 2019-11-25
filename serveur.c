@@ -22,7 +22,7 @@ void afficheZone( principale *p){
 printf("---------- Zone %d ---------\n", p->zones[i].numeroZone);
 printf("\t Données : %s \n  %s \n\n",p->zones[i].titre, p->zones[i].texte);
     
-printf("\tRéalisé par :%s\n", p->zones[i].createur);
+printf("\tRéalisé par :%s\n", p->zones[i].createurs);
     }
 }
 void initSemaphores(char* fichier_semaphores, int  cle_semaphore) {
@@ -67,7 +67,7 @@ void initZones(char* fichier_zones, int entier_cle) {
     for(int i=0; i<NB_ZONES_MAX; i++){
         zone z;
         z.numeroZone = i;
-        strcpy(z.createur , "chk");
+        strcpy(z.createurs , "chk");
         strcpy(z.texte,"Ceci est un texte");
         strcpy(z.titre,"un titre");
         p.zones[i] = z;

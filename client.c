@@ -15,76 +15,106 @@
 #include <netinet/in.h> 
 
 #include "structures.h"
-void afficheZone( principale *p){
-printf("Affichage des données du segment de mémoire\n");
-    sleep(1);
+
+void afficheZone(principale *p){
+    printf("Affichage des données du segment de mémoire\n");
+    //sleep(1);
     for(int i=0; i<NB_ZONES_MAX; i++){
-printf("---------- Zone %d ---------\n", p->zones[i].numeroZone);
-printf("\t Données : %s \n  %s \n\n",p->zones[i].titre, p->zones[i].texte);
-    
-printf("\tRéalisé par :%s\n", p->zones[i].createur);
-sleep(1);
+        printf("---------- Zone n°%d ---------\n", p->zones[i].numeroZone);
+        printf("\t Titre : %s \n \n",p->zones[i].titre);
+        printf("%s \n \n", p->zones[i].texte);
+            
+        printf("Auteur(s) : %s \n \n", p->zones[i].createurs);
+        //sleep(1);
     }
 }
-void editZone(principale* p, int numZone){
-        char newData[1024];
-        char  input_string[100];
-        printf("Entrer vos modification >");
-        //scanf("%s",newData);
-        //scanf("%[^\n]",newData);
-        fgets(newData, sizeof(newData), stdin);
-        printf("%s", newData);
-        strcat(p->zones[numZone].texte, " ");
-        strcat(p->zones[numZone].texte, newData);
-        printf("Modification terminine\n");
-}
-char* action(){
-int ac, sup,ok, numZone;
-      char* action;
-      action = malloc(sizeof(char) * 15);
-      char  newData[100];  
-        
-      printf("Quelle action souhaitez vous réaliser ? \n");
-      printf("Modifier\t Supprimer\t\n");      
-      scanf("%s",action);
-     
-      ac= strcmp(action,"modifier");
-      sup= strcmp(action,"supprimer");
-     
-     while (1 )
-     {
-        if(ac==0 && (numZone >=0 && numZone < 10 ) ){
-            return action;
-            
-      }
-      else
-      {
-          if (sup==0 && (numZone >=0 && numZone < 10 ))
-          {
-              // sup zone pas encore fait je simule avec editZone
-          return action;
-          
-          }
-          else
-          {
-            printf("Action non autorisee \n");
-            printf("Quelle action souhaitez vous réaliser ? \n");
-            printf("Modifier\t Supprimer\t\n");
-            scanf("%s",action);
-            
-          }
 
-      }
+void editZone(principale* p, int numZone){
+
+    char newData[TAILLE_MAX];
+    printf("Vous vous apprêtez à modifier la zone %d.\n", numZone);
+    printf("Entrez vos modifications > ");
+
+    // Cela permet de récupérer un caractère retour à la ligne si il est resté après un scanf de l'utilisateur
+    fgetc(stdin);
+
+    // Maintenant fgets ne récupère pas le retour à la ligne mais la prochaine saisie
+    if ((fgets(newData, TAILLE_MAX, stdin)) == NULL){
+        perror("fgets : ");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("%s", newData);
+    strcat(p->zones[numZone].texte, " ");
+    strcat(p->zones[numZone].texte, newData);
+
+    printf("Vos modifications ont bien été enregistrés!\n");
+}
+
+void editData(principale* p){
+ 
+    int numZone, choixMenu, choixCorrect=0;
+
+    while (!choixCorrect){           
+            printf("---------- MENU ---------- \n");
+            printf("1. Modifier un document\n");
+            printf("2. Supprimer un document \n");
+            printf("Tapez 1 ou 2 > ");
+
+            scanf("%d", &choixMenu);
+
+            printf("\nChoisissez la zone > ");
+
+            scanf("%d", &numZone);
+
+            //fflush(stdout);
+
+            if(choixMenu == 1 || choixMenu == 2){
+                if(numZone >= 0 && numZone < 10){
+                    choixCorrect++;
+                }
+                else
+                    printf("\nNuméro de zone incorrect.\n");  
+            }
+            else
+                printf("\nNuméro du menu incorrect. \n");
+    }
+
+    if(choixMenu == 1)
+        editZone(p, numZone);
+    /*else
+        supZone(p, numZone);
+
+
+          /*  if(ac==0 && (numZone >=0 && numZone < 10) ){
+                printf("numero test: %d\n", numZone);
+                editZone(p,numZone);
+                ok++;
+            }
+
+        else{
+            if (sup==0 && (numZone >=0 && numZone < 10 )){
+                // sup zone pas encore fait je simule avec editZone
+                editZone(p,numZone);
+                ok++;
+            }
+            else{
+                printf("Action non autorisee \n");
+                printf("Quelle action souhaitez vous réaliser ? \n");
+                printf("Modifier\t Supprimer\t\n");
+                scanf("%s",action);
+                printf("Sur quelle Zone ?\n");
+                scanf("%d", &numZone);
+            }
+
+        }
       
-     } 
+     } */
+    
     
 }
-void editData(principale*p){
-      
-    
-}
+
 int main(int argc, char **argv){
-    char* fichier_zones;
     int entier_cle;
     entier_cle=CLE_PARTAGE;
     int fd = open(FICHIER_PARTAGE, O_CREAT|O_WRONLY, 0644);
@@ -97,8 +127,8 @@ int main(int argc, char **argv){
     }
     int idS=0;
     principale p;
-     printf("shmget \n");
-     if ((idS=shmget(cle, sizeof(principale),0666)) < 0){
+    printf("shmget \n");
+    if ((idS=shmget(cle, sizeof(principale),0666)) < 0){
         if(errno == EEXIST)
              fprintf(stderr, "Le segment de memoire partagee (cle=%d) existe deja\n", cle);
         else
@@ -113,22 +143,13 @@ int main(int argc, char **argv){
         exit(EXIT_FAILURE);
     }
    
-      //afficheZone(shmaddr);
-      char* ac;
-      ac = action();
-      printf("action = %s",ac);
-      if(strcmp(ac,"modifier")== 0){
-          int n;
-           printf("Sur quelle Zone ?\n");
-           scanf("%d", &n);
-
-          editZone(shmaddr,n);
-      }
-      // Modification des données si souhaité par l'utilisateur
-      //editData(shmaddr);
-     // sleep(2);
-       //editZone(shmaddr, 9);
-     // afficheZone(shmaddr);
+    afficheZone(shmaddr);
+      
+    /* Modification des données si souhaité par l'utilisateur */
+    
+    editData(shmaddr);
+    //editZone(shmaddr, 9);
+    afficheZone(shmaddr);
        
      
     if((shmdt(shmaddr)) < 0) {

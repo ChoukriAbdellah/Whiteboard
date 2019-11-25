@@ -24,7 +24,7 @@
 typedef struct{ 
     int numeroZone;
     char titre[TAILLE_MAX];
-    char createur[TAILLE_MAX];
+    char createurs[TAILLE_MAX];
     char texte[TAILLE_MAX];
 } zone;
 
