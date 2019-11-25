@@ -38,32 +38,36 @@ void editZone(principale* p, int numZone){
         strcat(p->zones[numZone].texte, newData);
         printf("Modification terminine\n");
 }
-char* action(){
-int ac, sup,ok, numZone;
-      char* action;
-      action = malloc(sizeof(char) * 15);
+
+void editData(principale*p){
+      int ac, sup,ok, numZone;
+      char action[20];
       char  newData[100];  
         
       printf("Quelle action souhaitez vous réaliser ? \n");
-      printf("Modifier\t Supprimer\t\n");      
+      printf("Modifier\t Supprimer\t\n");
+       
+      
       scanf("%s",action);
-     
+      printf("Sur quelle Zone ?\n");
+      scanf("%d", &numZone);
       ac= strcmp(action,"modifier");
-      sup= strcmp(action,"supprimer");
+       sup= strcmp(action,"supprimer");
+       ok=0;
      
-     while (1 )
+     while (ok == 0 )
      {
-        if(ac==0 && (numZone >=0 && numZone < 10 ) ){
-            return action;
-            
+         if(ac==0 && (numZone >=0 && numZone < 10 ) ){
+         editZone(p,numZone);
+          ok++;
       }
       else
       {
           if (sup==0 && (numZone >=0 && numZone < 10 ))
           {
               // sup zone pas encore fait je simule avec editZone
-          return action;
-          
+          editZone(p,numZone);
+          ok++;
           }
           else
           {
@@ -71,16 +75,14 @@ int ac, sup,ok, numZone;
             printf("Quelle action souhaitez vous réaliser ? \n");
             printf("Modifier\t Supprimer\t\n");
             scanf("%s",action);
-            
+            printf("Sur quelle Zone ?\n");
+            scanf("%d", &numZone);
           }
 
       }
       
      } 
     
-}
-void editData(principale*p){
-      
     
 }
 int main(int argc, char **argv){
@@ -113,22 +115,13 @@ int main(int argc, char **argv){
         exit(EXIT_FAILURE);
     }
    
-      //afficheZone(shmaddr);
-      char* ac;
-      ac = action();
-      printf("action = %s",ac);
-      if(strcmp(ac,"modifier")== 0){
-          int n;
-           printf("Sur quelle Zone ?\n");
-           scanf("%d", &n);
-
-          editZone(shmaddr,n);
-      }
+      afficheZone(shmaddr);
+      
       // Modification des données si souhaité par l'utilisateur
       //editData(shmaddr);
      // sleep(2);
-       //editZone(shmaddr, 9);
-     // afficheZone(shmaddr);
+       editZone(shmaddr, 9);
+      afficheZone(shmaddr);
        
      
     if((shmdt(shmaddr)) < 0) {

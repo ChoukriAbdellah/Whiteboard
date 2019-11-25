@@ -3,14 +3,38 @@
 
 #include <sys/sem.h>
 
-// Le fichier utilisé en tant que segment partagé
+// Nombre de zones max
+#define NB_ZONES_MAX 10
+
+// Le fichier utilisé pour les sémaphores
+#define FICHIER_SEMAPHORES "./semaphores"
+
+// Le fichier utilisé pour le segment de mémoire partagée
 #define FICHIER_PARTAGE "./segment-memoire"
 
-// L'entier commun pour calculer la clé
-#define ENTIER_CLE 35
+// L'entier commun pour calculer la clé utilisée pour le segment de mémoire partagée
+#define CLE_PARTAGE 35
 
-/* Union */
+// L'entier commun pour calculer la clé utilisée pour le tableau de sémaphores
+#define CLE_SEMAPHORES 35
 
+#define TAILLE_MAX 2014
+/* Structures à partager dans le segment */
+
+typedef struct{ 
+    int numeroZone;
+    char titre[TAILLE_MAX];
+    char createur[TAILLE_MAX];
+    char texte[TAILLE_MAX];
+} zone;
+
+typedef struct {
+    zone zones[10];
+} principale;
+
+/* Structure utiles aux sémaphores */
+
+// Union
 union semun {
     int val; /* cmd = SETVAL */
     struct semid_ds *buf; /* cmd = IPC_STAT ou IPC_SET */
@@ -18,19 +42,7 @@ union semun {
     struct seminfo *__buf ;/* cmd = IPC_INFO (sous Linux) */
 };
 
-typedef struct{ 
-    int numeroZone;
-    char* titre;
-    char* createur;
-    char* texte;
-} zone;
-
-typedef struct {
-    zone zones[10];
-} principale;
-
-/* Structure des opérations */
-
+// Operations
 struct sembuf op[] = {
     { 0, -1, SEM_UNDO }, // P
     { 0, 1, SEM_UNDO }, // V
