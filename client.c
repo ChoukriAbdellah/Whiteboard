@@ -44,13 +44,31 @@ void editZone(principale* p, int numZone){
         exit(EXIT_FAILURE);
     }
 
-    printf("%s", newData);
+    
     strcat(p->zones[numZone].texte, " ");
     strcat(p->zones[numZone].texte, newData);
 
     printf("Vos modifications ont bien été enregistrés!\n");
 }
+ void removeZone(principale* p, int numZone){
+      char newData[TAILLE_MAX];
+      int n;
+    printf("Vous vous apprêtez à supprimer la zone %d.\n", numZone);
+    printf("Etes vous sur de vouloir supprimer le contenu de cette Zone ? > ");
+    scanf("%s",newData);
+     n=strcmp(newData,"oui");
 
+   if(n == 0){
+       strcpy(p->zones[numZone].texte, "");
+       printf("Contenu supprimé!\n");
+   }
+   else
+   {
+    printf("Contenu non supprimé!\n");
+   }
+   
+ 
+ }
 void editData(principale* p){
  
     int numZone, choixMenu, choixCorrect=0;
@@ -82,6 +100,9 @@ void editData(principale* p){
 
     if(choixMenu == 1)
         editZone(p, numZone);
+    if(choixMenu == 2)
+        removeZone(p, numZone);
+        
     /*else
         supZone(p, numZone);
 
