@@ -9,6 +9,9 @@
 // Le fichier utilisé pour les sémaphores
 #define FICHIER_SEMAPHORES "./semaphores"
 
+struct sembuf opp;
+struct sembuf opv;
+
 // Le fichier utilisé pour le segment de mémoire partagée
 #define FICHIER_PARTAGE "./segment-memoire"
 
@@ -31,7 +34,10 @@ typedef struct{
 typedef struct {
     zone zones[10];
 } principale;
-
+typedef struct{
+principale* p;
+int index ;
+} data;
 /* Structure utiles aux sémaphores */
 
 // Union

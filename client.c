@@ -13,10 +13,11 @@
 #include <string.h> 
 #include <netdb.h> 
 #include <netinet/in.h> 
+#include <pthread.h>
 
 #include "structures.h"
 
-void afficheZone(principale *p){
+void afficheZones(principale *p){
     printf("Affichage des données du segment de mémoire\n");
     //sleep(1);
     for(int i=0; i<NB_ZONES_MAX; i++){
@@ -27,6 +28,18 @@ void afficheZone(principale *p){
         printf("Auteur(s) : %s \n \n", p->zones[i].createurs);
         //sleep(1);
     }
+}
+void afficheZone(principale *p, int zone){
+    printf("\nUne mise à ajour vient d'etre réalisée sur cette zone\n");
+    
+
+        printf("---------- Zone n°%d ---------\n", p->zones[zone].numeroZone);
+        printf("\t Titre : %s \n \n",p->zones[zone].titre);
+        printf("%s \n \n", p->zones[zone].texte);
+            
+        printf("Auteur(s) : %s \n \n", p->zones[zone].createurs);
+       
+    
 }
 
 void editZone(principale* p, int numZone){
@@ -69,9 +82,96 @@ void editZone(principale* p, int numZone){
    
  
  }
+ void* MAJ(void* arg){
+      data *temp =  arg; 
+
+      int fd = open(FICHIER_SEMAPHORES, O_CREAT|O_WRONLY, 0644);
+    close(fd);
+
+    // On calcule notre clé
+    key_t cleSem;
+    if ( (cleSem = ftok(FICHIER_SEMAPHORES, CLE_SEMAPHORES)) == (key_t) -1){
+        perror("Erreur ftok ");
+        exit(EXIT_FAILURE);
+    }
+
+    int idSem=0;
+
+    if ((idSem=semget(cleSem, 1, 0666)) < 0){
+        if(errno == EEXIST)
+             fprintf(stderr, "La sémaphore (id=%d) existe deja\n", idSem);
+        else
+            perror("Erreur semget ");
+        exit(EXIT_FAILURE);
+    } 
+
+    //printf("Processus n°%d : La sémaphore a bien été créée et attachée.\n", getpid());
+	opp.sem_op = -1;
+	opp.sem_flg = 0;
+	
+	opv.sem_op = 1;
+	opv.sem_flg = 0;
+    
+
+        opp.sem_num = temp->index;
+		opv.sem_num = temp->index;
+        int attente;
+        while ( 1)
+        {
+          if((attente= semctl(idSem, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
+            perror("problème init");//suite
+        }
+         if (attente == 0)
+         {
+             while (semctl(idSem, temp->index, GETVAL) == 0)
+             {
+                 // On attend que le client ait fini sa modification
+             }
+             
+             afficheZone(temp->p,temp->index);
+             
+         }
+        }
+        
+        
+         
+         
+    
+     
+ }
+ 
 void editData(principale* p){
  
     int numZone, choixMenu, choixCorrect=0;
+
+    int fd = open(FICHIER_SEMAPHORES, O_CREAT|O_WRONLY, 0644);
+    close(fd);
+
+    // On calcule notre clé
+    key_t cleSem;
+    if ( (cleSem = ftok(FICHIER_SEMAPHORES, CLE_SEMAPHORES)) == (key_t) -1){
+        perror("Erreur ftok ");
+        exit(EXIT_FAILURE);
+    }
+
+    int idSem=0;
+
+    if ((idSem=semget(cleSem, 1, 0666)) < 0){
+        if(errno == EEXIST)
+             fprintf(stderr, "La sémaphore (id=%d) existe deja\n", idSem);
+        else
+            perror("Erreur semget ");
+        exit(EXIT_FAILURE);
+    } 
+
+    printf("Processus n°%d : La sémaphore a bien été créée et attachée.\n", getpid());
+	opp.sem_op = -1;
+	opp.sem_flg = 0;
+	
+	opv.sem_op = 1;
+	opv.sem_flg = 0;
+
+    
 
     while (!choixCorrect){           
             printf("---------- MENU ---------- \n");
@@ -84,6 +184,19 @@ void editData(principale* p){
             printf("\nChoisissez la zone > ");
 
             scanf("%d", &numZone);
+
+            opp.sem_num = numZone;
+		    opv.sem_num = numZone;
+            int attente;
+            if((attente= semctl(idSem, numZone, GETVAL)) == -1){ // On récupères le nombre de processus restants
+                perror("problème init");//suite
+            }
+
+            if (attente == 0) {
+                printf("Cette zone est en cours de modification par un autre client, veuillez patientez ... \n");
+            }
+		   
+		    semop(idSem,&opp,1);
 
             //fflush(stdout);
 
@@ -102,41 +215,20 @@ void editData(principale* p){
         editZone(p, numZone);
     if(choixMenu == 2)
         removeZone(p, numZone);
+
+    semop(idSem,&opv,1);
         
-    /*else
-        supZone(p, numZone);
-
-
-          /*  if(ac==0 && (numZone >=0 && numZone < 10) ){
-                printf("numero test: %d\n", numZone);
-                editZone(p,numZone);
-                ok++;
-            }
-
-        else{
-            if (sup==0 && (numZone >=0 && numZone < 10 )){
-                // sup zone pas encore fait je simule avec editZone
-                editZone(p,numZone);
-                ok++;
-            }
-            else{
-                printf("Action non autorisee \n");
-                printf("Quelle action souhaitez vous réaliser ? \n");
-                printf("Modifier\t Supprimer\t\n");
-                scanf("%s",action);
-                printf("Sur quelle Zone ?\n");
-                scanf("%d", &numZone);
-            }
-
-        }
-      
-     } */
+  
     
     
 }
 
 int main(int argc, char **argv){
     int entier_cle;
+    int idS=0;
+    principale p;
+    pthread_t arrayT[NB_ZONES_MAX];
+
     entier_cle=CLE_PARTAGE;
     int fd = open(FICHIER_PARTAGE, O_CREAT|O_WRONLY, 0644);
     close(fd);
@@ -146,8 +238,8 @@ int main(int argc, char **argv){
         perror("Erreur ftok ");
         exit(EXIT_FAILURE);
     }
-    int idS=0;
-    principale p;
+    
+    
     printf("shmget \n");
     if ((idS=shmget(cle, sizeof(principale),0666)) < 0){
         if(errno == EEXIST)
@@ -163,15 +255,29 @@ int main(int argc, char **argv){
         perror("Erreur shmat ");
         exit(EXIT_FAILURE);
     }
-   
-    afficheZone(shmaddr);
+     for (int i = 0; i < NB_ZONES_MAX; ++i) {
+          data* d = malloc(sizeof( data*));
+          d->p= shmaddr;
+          d->index=i;
+         
+                                    if(pthread_create(&arrayT[i], NULL, MAJ, d) != 0){
+                                        perror("error : pthread ");
+                                    }
+    }
+    afficheZones(shmaddr);
       
     /* Modification des données si souhaité par l'utilisateur */
     
     editData(shmaddr);
     //editZone(shmaddr, 9);
-    afficheZone(shmaddr);
-       
+    afficheZones(shmaddr);
+    //Affichage des notifications                                
+   for (int i = 0; i < NB_ZONES_MAX; ++i) {
+																pthread_join(arrayT[i], NULL);
+								}
+    
+    
+      
      
     if((shmdt(shmaddr)) < 0) {
         perror("Erreur lors du detachement ");
