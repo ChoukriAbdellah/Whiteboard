@@ -1,30 +1,35 @@
-#include <sys/types.h> // Pour key_t
+#include<stdio.h>
+#include<sys/types.h>//socket
+#include<sys/socket.h>//socket
+#include<string.h>//memset
+#include<stdlib.h>//sizeof
+#include<netinet/in.h>//INADDR_ANY
+#include <unistd.h>// Pour close(fd)
+#include <arpa/inet.h>
 #include <sys/ipc.h> // Pour segments mémoires
 #include <sys/sem.h> // Pour sémaphores 
 #include <fcntl.h>// Pour open(), O_CREAT O_WRONLY
-#include <stdio.h> //Pour printf()
 #include <sys/shm.h> // Pour shmget(), shmat(), shmdt(), shmctl()
 #include <errno.h> // Pour errno
-#include <unistd.h> // Pour close(fd)
-#include <stdlib.h> // Pour exit(), NULL
-#include <sys/socket.h> 
-#include<stdio.h>
-#include<arpa/inet.h> //inet_addr
-#include <string.h> 
 #include <netdb.h> 
 #include <netinet/in.h> 
 
 #include "structures.h"
 
+void afficheZone(zone z){
+    printf("---------- Zone n°%d ---------\n", z.numeroZone);
+    printf("\t Titre : %s \n \n",z.titre);
+    printf("%s \n \n", z.texte);
+            
+    printf("Auteur(s) : %s \n \n", z.createurs);
+}
 
-void afficheZone( principale *p){
+void afficheZones(principale *p){
     for(int i=0; i<NB_ZONES_MAX; i++){
-printf("---------- Zone %d ---------\n", p->zones[i].numeroZone);
-printf("\t Données : %s \n  %s \n\n",p->zones[i].titre, p->zones[i].texte);
-    
-printf("\tRéalisé par :%s\n", p->zones[i].createurs);
+        afficheZone(p->zones[i]);
     }
 }
+
 void initSemaphores(char* fichier_semaphores, int  cle_semaphore) {
   
   //Création du fichier s'il n'existe pas
@@ -48,8 +53,7 @@ void initSemaphores(char* fichier_semaphores, int  cle_semaphore) {
 
 }
 
-
-void initZones(char* fichier_zones, int entier_cle) {
+principale * initZones(char* fichier_zones, int entier_cle) {
     //Création du fichier s'il n'existe pas
     int fd = open(fichier_zones, O_CREAT|O_WRONLY, 0644);
     close(fd);
@@ -99,35 +103,61 @@ void initZones(char* fichier_zones, int entier_cle) {
     //printf("Serveur: Segment prêt avec %d zones.\n" , *shmaddr);
 
     //Detachement du segment de memoire partagee */
-    afficheZone(shmaddr);
-    if((shmdt(shmaddr)) < 0) {
-        perror("Erreur lors du detachement ");
-        exit(EXIT_FAILURE);
-    }
+    afficheZones(shmaddr);
 
-    printf("Serveur: Segment détaché.\n");
-
-
-}
-/*
-void  initSockaddr(struct sockaddr_in* server, struct sockaddr_in* client, int numPort, char* adr){
-    int socket_desc ;
-    //Création du socket
-    socket_desc = socket(AF_INET , SOCK_STREAM , 0);
-    if (socket_desc == -1)
-    {
-         printf("La création du socket a échoué\n");
-    }
-    puts("Socket créé\n");
-     
-    //Préparation de la structure sockaddr_in 
-    server->sin_family = AF_INET; // Définition d'un adresse sur 4 octets
-    server->sin_addr.s_addr =inet_addr(adr);
-    server->sin_port = htons(numPort);
+    return shmaddr;
 }
 
-*/
-int main(int argc, char **argv){
+unsigned char * serialize_int(unsigned char *buffer, int value){
+  /* Write big-endian int value into buffer; assumes 32-bit int and 8-bit char. */
+  buffer[0] = value >> 24;
+  buffer[1] = value >> 16;
+  buffer[2] = value >> 8;
+  buffer[3] = value;
+  return buffer + 4;
+}
+
+unsigned char * serialize_char(unsigned char *buffer, char value){
+  buffer[0] = value;
+  return buffer + 1;
+}
+
+unsigned char * serialize_temp(unsigned char *buffer,  zone *value){
+  buffer = serialize_int(buffer, value->numeroZone);
+  //buffer = serialize_char(buffer, value->b);
+  return buffer;
+}
+
+int sendPourTCP(int s, char* msg, int Socket){
+    // On fait un envoi d'abord pour indiquer la taille à envoyer : 
+
+    send(Socket,&s,sizeof(s),0);
+    int i=0;
+    int totalSend = 0;
+    printf("Total à envoyer : %d\n", s);
+    while(totalSend <  s){
+        int nbSend = 0;
+        nbSend = send(Socket,msg+totalSend,s-totalSend,0);
+        printf("Iteration i=%d, nb send = %d\n", i, nbSend);
+
+
+        if (nbSend == -1){
+            return -1;
+        }
+        else if (nbSend == 0){
+             printf("Total envoyé: %d\n", totalSend);
+            return 0;
+        }
+        else
+            totalSend+=nbSend;
+        i++;
+        sleep(1);
+    }
+
+    return 1;
+}
+
+int main(int argc, char** argv){
 
     if(argc != 1) {
         printf("Utilisation : ./serveur <Port>\t<Adresse>\t \n");
@@ -138,12 +168,92 @@ int main(int argc, char **argv){
     }
 
     initSemaphores(FICHIER_SEMAPHORES, CLE_SEMAPHORES);
-    initZones(FICHIER_PARTAGE, CLE_PARTAGE);
+    principale* p = initZones(FICHIER_PARTAGE, CLE_PARTAGE);
 
-    
+    int sockfd;//to create socket
+    int newsockfd;//to accept connection
 
-   
-    
+    struct sockaddr_in serverAddress;//server receive on this address
+    struct sockaddr_in clientAddress;//server sends to client on this address
+
+    int n;
+    char msg[TAILLE_MAX];
+    int clientAddressLength;
+    int pid;
+
+    //create socket
+    sockfd=socket(AF_INET,SOCK_STREAM,0);
+    //initialize the socket addresses
+    memset(&serverAddress,0,sizeof(serverAddress));
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    serverAddress.sin_port = htons(PORT);
+
+    //bind the socket with the server address and port
+    bind(sockfd,(struct sockaddr *)&serverAddress, sizeof(serverAddress));
+
+    //listen for connection from client
+    listen(sockfd,5);
+
+    while(1)
+    {
+        //parent process waiting to accept a new connection
+        printf("\nServeur: En attente de connexion d'un nouveau client...\n");
+        clientAddressLength=sizeof(clientAddress);
+        newsockfd=accept(sockfd,(struct sockaddr*)&clientAddress,&clientAddressLength);
+        printf("Serveur: Connexion d'un nouveau client avec succès. (IP: %s)\n",inet_ntoa(clientAddress.sin_addr));
+
+        //child process is created for serving each new clients
+        pid=fork();
+        if(pid==0){
+            // On est dans le processus fils
+            while(1){
+
+                // Zone 0
+                zone z0;
+                z0 = p->zones[0];
+
+                int err;
+
+                // On envoie la zone 0
+
+                printf("Serveur: Envoi en cours...");
+
+                int len = 0;
+
+                err = sendPourTCP(sizeof(zone), (char *) &z0, newsockfd);
+                if(err==0){
+                    fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = 0\n",inet_ntoa(clientAddress.sin_addr));
+                }
+                else if(err = -1){
+                    fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = -1\n",inet_ntoa(clientAddress.sin_addr));
+                }
+               // else if(err == -1){
+               //     fprintf(stderr, "Serveur: err-1");
+               // }
+                else
+                    printf("Serveur: Envoi du contenu de l'espace mémoire terminé.");
+
+                sleep(30);
+
+            }
+                exit(0);
+        }
+        else{
+            close(newsockfd);
+            // Le parent ferme la socket
+            }
+    }
+
+        
+    if((shmdt(p)) < 0) {
+        perror("Erreur lors du detachement ");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Serveur: Segment détaché.\n");
 
     return 0;
+
+
 }

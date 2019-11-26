@@ -3,6 +3,10 @@
 
 #include <sys/sem.h>
 
+#define PORT 8030
+#define SERVER_IP "127.0.0.1"
+#define TAILLE_MAX 2014
+
 // Nombre de zones max
 #define NB_ZONES_MAX 10
 
@@ -21,7 +25,7 @@ struct sembuf opv;
 // L'entier commun pour calculer la clé utilisée pour le tableau de sémaphores
 #define CLE_SEMAPHORES 35
 
-#define TAILLE_MAX 2014
+
 /* Structures à partager dans le segment */
 
 typedef struct{ 
@@ -34,10 +38,12 @@ typedef struct{
 typedef struct {
     zone zones[10];
 } principale;
+
 typedef struct{
 principale* p;
 int index ;
 } data;
+
 /* Structure utiles aux sémaphores */
 
 // Union

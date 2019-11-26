@@ -17,14 +17,15 @@
 #include "structures.h"
 
 
-void afficheZone( principale *p){
+void afficheZone(principale *p){
     for(int i=0; i<NB_ZONES_MAX; i++){
-printf("---------- Zone %d ---------\n", p->zones[i].numeroZone);
-printf("\t Données : %s \n  %s \n\n",p->zones[i].titre, p->zones[i].texte);
-    
-printf("\tRéalisé par :%s\n", p->zones[i].createurs);
+    printf("---------- Zone %d ---------\n", p->zones[i].numeroZone);
+    printf("\t Données : %s \n  %s \n\n",p->zones[i].titre, p->zones[i].texte);
+        
+    printf("\tRéalisé par :%s\n", p->zones[i].createurs);
     }
 }
+
 void initSemaphores(char* fichier_semaphores, int  cle_semaphore) {
   
   //Création du fichier s'il n'existe pas
