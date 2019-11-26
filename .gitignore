@@ -1,4 +1,8 @@
 # on ne met pas les binaires dans le git 
 
-.client
-.serveur
+./version-centralisee/client
+./version-centralisee/serveur
+
+
+./version-distribuee/client
+./version-distribuee/serveur

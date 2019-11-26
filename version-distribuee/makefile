@@ -6,4 +6,4 @@ all: $(PROGS)
 
 %: %.c
 
-	$(CC) $(CFLAGS)  -o $@ $<
+	$(CC) $(CFLAGS)  -o $@ $< -lpthread
