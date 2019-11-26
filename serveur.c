@@ -67,7 +67,7 @@ void initZones(char* fichier_zones, int entier_cle) {
     for(int i=0; i<NB_ZONES_MAX; i++){
         zone z;
         z.numeroZone = i;
-        strcpy(z.createurs , "chk");
+        strcpy(z.createurs , "créateur");
         strcpy(z.texte,"Ceci est un texte");
         strcpy(z.titre,"un titre");
         p.zones[i] = z;
