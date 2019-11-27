@@ -216,9 +216,6 @@ void editData(principale* p){
 
     semop(idSem,&opv,1);
         
-  
-    
-    
 }
 
 int main(int argc, char **argv){

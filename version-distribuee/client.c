@@ -25,16 +25,96 @@ void afficheZone(zone z){
     printf("Auteur(s) : %s \n \n", z.createurs);
 }
 
-void afficheZones(principale *p){
+void afficheZones(principale p){
     for(int i=0; i<NB_ZONES_MAX; i++){
-        afficheZone(p->zones[i]);
+        afficheZone(p.zones[i]);
     }
 }
+
+/*void editData(principale* p){
+ 
+    int numZone, choixMenu, choixCorrect=0;
+
+    int fd = open(FICHIER_SEMAPHORES, O_CREAT|O_WRONLY, 0644);
+    close(fd);
+
+    // On calcule notre clé
+    key_t cleSem;
+    if ( (cleSem = ftok(FICHIER_SEMAPHORES, CLE_SEMAPHORES)) == (key_t) -1){
+        perror("Erreur ftok ");
+        exit(EXIT_FAILURE);
+    }
+
+    int idSem=0;
+
+    if ((idSem=semget(cleSem, 1, 0666)) < 0){
+        if(errno == EEXIST)
+             fprintf(stderr, "La sémaphore (id=%d) existe deja\n", idSem);
+        else
+            perror("Erreur semget ");
+        exit(EXIT_FAILURE);
+    } 
+
+    printf("Processus n°%d : La sémaphore a bien été créée et attachée.\n", getpid());
+	opp.sem_op = -1;
+	opp.sem_flg = 0;
+	
+	opv.sem_op = 1;
+	opv.sem_flg = 0;
+
+    while (!choixCorrect){           
+            printf("---------- MENU ---------- \n");
+            printf("1. Modifier un document\n");
+            printf("2. Supprimer un document \n");
+            printf("Tapez 1 ou 2 > ");
+
+            scanf("%d", &choixMenu);
+
+            printf("\nChoisissez la zone > ");
+
+            scanf("%d", &numZone);
+
+            opp.sem_num = numZone;
+		    opv.sem_num = numZone;
+            int attente;
+            if((attente= semctl(idSem, numZone, GETVAL)) == -1){ // On récupères le nombre de processus restants
+                perror("problème init");//suite
+            }
+
+            if (attente == 0) {
+                printf("Cette zone est en cours de modification par un autre client, veuillez patientez ... \n");
+            }
+		   
+		    semop(idSem,&opp,1);
+
+            //fflush(stdout);
+
+            if(choixMenu == 1 || choixMenu == 2){
+                if(numZone >= 0 && numZone < 10){
+                    choixCorrect++;
+                }
+                else
+                    printf("\nNuméro de zone incorrect.\n");  
+            }
+            else
+                printf("\nNuméro du menu incorrect. \n");
+    }
+
+    if(choixMenu == 1)
+        editZone(p, numZone);
+    if(choixMenu == 2)
+        removeZone(p, numZone);
+
+    semop(idSem,&opv,1);
+        
+}*/
+
+unsigned char * deserialize_int(unsigned char *buffer, int *value){}
 
 int recvPourTCP(char* msg, int Socket){
     // Printf en commentaires pour debug
 
-    
+
     int s;
     int i=0;
     // On fait une réception d'abord pour récuperer la taille à recevoir : 
@@ -57,7 +137,6 @@ int recvPourTCP(char* msg, int Socket){
         else
             totalRecv+=nbRecv;
         i++;
-        sleep(1);
     }
 
     //rintf("Fin correcte\n");
@@ -84,17 +163,23 @@ int main(int argc, char** argv){
     //send to sever and receive from server
 
 
-    printf("\nStructure reçue : \n");
+    printf("\nClient: Structure en cours de reception...\n");
 
 
-    zone reception;
+    principale p;    
 
-    recvPourTCP((char *) &reception, sockfd);
-    afficheZone(reception);
+    for(int i=0; i<NB_ZONES_MAX; i++){
+        zone reception;
+        recvPourTCP((char *) &reception, sockfd);
+        p.zones[i] = reception;
+    }
+
+    afficheZones(p);
 
     while(1){
 
-        printf("A faire...\n");
+        printf("Client: Tout a bien été reçu.\n");
+        //editData(p);
         sleep(29);
 
     }

@@ -124,7 +124,14 @@ unsigned char * serialize_char(unsigned char *buffer, char value){
 
 unsigned char * serialize_temp(unsigned char *buffer,  zone *value){
   buffer = serialize_int(buffer, value->numeroZone);
-  //buffer = serialize_char(buffer, value->b);
+  for(int i=0; i<strlen(value->titre); i++)
+     buffer = serialize_char(buffer, value->titre[i]);
+
+  for(int i=0; i<strlen(value->texte); i++)
+     buffer = serialize_char(buffer, value->texte[i]);
+
+  for(int i=0; i<strlen(value->createurs); i++)
+     buffer = serialize_char(buffer, value->createurs[i]);
   return buffer;
 }
 
@@ -154,7 +161,6 @@ int sendPourTCP(int s, char* msg, int Socket){
         else
             totalSend+=nbSend;
         i++;
-        sleep(1);
     }
 
     //printf("Fin correcte\n");
@@ -212,34 +218,35 @@ int main(int argc, char** argv){
         if(pid==0){
             // On est dans le processus fils
             while(1){
-
-                // Zone 0
-                zone z0;
-                z0 = p->zones[0];
-                //unsigned char buffer[32], *ptr;
-
-                //ptr = serialize_temp(buffer, z0);
-                // On envoie la zone 0
-
                 printf("Serveur: Envoi en cours...\n");
 
-                int len = 0;
-                int err;
+                for(int i=0; i<NB_ZONES_MAX; i++){
+                    // A chaque envoi, on envoie la zone i
+                    zone z;
+                    z = p->zones[i];
+                    int len = 0;
+                    int err;
 
-                err = sendPourTCP(sizeof(z0), (char *) &z0, newsockfd);
-                //printf("err: %d \n", err);
-
-                switch(err){
-                    case 0:
-                        fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = 0\n",inet_ntoa(clientAddress.sin_addr));
-                        break;
-                    case -1:
-                        fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = -1\n",inet_ntoa(clientAddress.sin_addr));
-                        break;
-                    case 1:
-                        printf("Serveur: Envoi du contenu de l'espace mémoire au client (IP: %s) terminé.\n",inet_ntoa(clientAddress.sin_addr));
-                        break;
+                     err = sendPourTCP(sizeof(z), (char *) &z, newsockfd);
+                    //printf("err: %d \n", err);
+                    switch(err){
+                        case 0:
+                            fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = 0\n",inet_ntoa(clientAddress.sin_addr));
+                            break;
+                        case -1:
+                            fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = -1\n",inet_ntoa(clientAddress.sin_addr));
+                            break;
+                        case 1:
+                            printf("Serveur: Envoi de la zone %d au client (IP: %s) terminé.\n",i, inet_ntoa(clientAddress.sin_addr));
+                            break;
+                    }
                 }
+                printf("Serveur: Le client (IP: %s) a bien reçue toutes les données.\n", inet_ntoa(clientAddress.sin_addr));
+                    
+                /*unsigned char buffer[32], *ptr;
+
+                ptr = serialize_temp(buffer, z0);*/
+
 
                 sleep(30);
 
