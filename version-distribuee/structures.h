@@ -3,7 +3,7 @@
 
 #include <sys/sem.h>
 
-#define PORT 8040
+#define PORT 8050
 #define SERVER_IP "127.0.0.1"
 #define TAILLE_MAX 2014
 

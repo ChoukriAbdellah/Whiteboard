@@ -133,8 +133,7 @@ void editZone(principale* p, int numZone){
          }
         }
         
-        
-        
+   
      
  }
  

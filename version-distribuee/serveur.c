@@ -15,6 +15,7 @@
 #include <netinet/in.h> 
 
 #include "structures.h"
+#include "TCP.h"
 
 void afficheZone(zone z){
     printf("---------- Zone n°%d ---------\n", z.numeroZone);
@@ -30,7 +31,35 @@ void afficheZones(principale *p){
     }
 }
 
-void initSemaphores(char* fichier_semaphores, int  cle_semaphore) {
+void envoiEspace(principale* p, int Socket, struct in_addr IP){
+    printf("Serveur: Envoi en cours...\n");
+
+    for(int i=0; i<NB_ZONES_MAX; i++){
+        // A chaque envoi, on envoie la zone i
+        zone z;
+        z = p->zones[i];
+        int len = 0;
+        int err;
+
+        err = sendPourTCP(sizeof(z), (char *) &z, Socket);
+        //printf("err: %d \n", err);
+        switch(err){
+        case 0:
+            fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = 0\n",inet_ntoa(IP));
+            break;
+        case -1:
+            fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = -1\n",inet_ntoa(IP));
+            break;
+        case 1:
+            printf("Serveur: Envoi de la zone %d au client (IP: %s) terminé.\n",i, inet_ntoa(IP));
+            break;
+        }
+    }
+
+    printf("Serveur: Le client (IP: %s) a bien reçue toutes les données.\n", inet_ntoa(IP));
+}
+
+int initSemaphores(char* fichier_semaphores, int  cle_semaphore) {
   
   //Création du fichier s'il n'existe pas
   int fd = open(fichier_semaphores, O_CREAT|O_WRONLY, 0644);
@@ -50,6 +79,8 @@ void initSemaphores(char* fichier_semaphores, int  cle_semaphore) {
             perror("Probleme semctl fonction initStructure");
         }
     }  
+
+    return idSem;
 
 }
 
@@ -135,38 +166,6 @@ unsigned char * serialize_temp(unsigned char *buffer,  zone *value){
   return buffer;
 }
 
-int sendPourTCP(int s, char* msg, int Socket){
-    // Printf en commentaires pour debug
-
-    // On fait un envoi d'abord pour indiquer la taille à envoyer : 
-
-    send(Socket,&s,sizeof(s),0);
-
-    int i=0;
-    int totalSend = 0;
-    //printf("Total à envoyer : %d\n", s);
-    while(totalSend <  s){
-        int nbSend = 0;
-        nbSend = send(Socket,msg+totalSend,s-totalSend,0);
-        //printf("Iteration i=%d, nb send = %d\n", i, nbSend);
-
-
-        if (nbSend == -1){
-            return -1;
-        }
-        else if (nbSend == 0){
-            //printf("Total envoyé: %d\n", totalSend);
-            return 0;
-        }
-        else
-            totalSend+=nbSend;
-        i++;
-    }
-
-    //printf("Fin correcte\n");
-    return 1;
-}
-
 int main(int argc, char** argv){
 
     if(argc != 1) {
@@ -177,7 +176,7 @@ int main(int argc, char** argv){
         exit(1);
     }
 
-    initSemaphores(FICHIER_SEMAPHORES, CLE_SEMAPHORES);
+    int idSem = initSemaphores(FICHIER_SEMAPHORES, CLE_SEMAPHORES);
     principale* p = initZones(FICHIER_PARTAGE, CLE_PARTAGE);
 
     int sockfd;//to create socket
@@ -218,39 +217,65 @@ int main(int argc, char** argv){
         if(pid==0){
             // On est dans le processus fils
             while(1){
-                printf("Serveur: Envoi en cours...\n");
 
-                for(int i=0; i<NB_ZONES_MAX; i++){
-                    // A chaque envoi, on envoie la zone i
-                    zone z;
-                    z = p->zones[i];
-                    int len = 0;
-                    int err;
-
-                     err = sendPourTCP(sizeof(z), (char *) &z, newsockfd);
-                    //printf("err: %d \n", err);
-                    switch(err){
-                        case 0:
-                            fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = 0\n",inet_ntoa(clientAddress.sin_addr));
-                            break;
-                        case -1:
-                            fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = -1\n",inet_ntoa(clientAddress.sin_addr));
-                            break;
-                        case 1:
-                            printf("Serveur: Envoi de la zone %d au client (IP: %s) terminé.\n",i, inet_ntoa(clientAddress.sin_addr));
-                            break;
-                    }
-                }
-                printf("Serveur: Le client (IP: %s) a bien reçue toutes les données.\n", inet_ntoa(clientAddress.sin_addr));
+                envoiEspace(p, newsockfd, clientAddress.sin_addr);
                     
-                /*unsigned char buffer[32], *ptr;
+                // Le serveur reçoit une zone où le client souhaite intervenir
 
-                ptr = serialize_temp(buffer, z0);*/
+                // Opération P
+                opp.sem_op = -1;
+	            opp.sem_flg = 0;
+	
+                // Opération V
+	            opv.sem_op = 1;
+	            opv.sem_flg = 0;
 
+                int numZone;
+                //recvPourTCP((char *)&numZone, sockfd);
+                recv(newsockfd,&numZone,sizeof(numZone),0);
 
-                sleep(30);
+                opp.sem_num = numZone;
+		        opv.sem_num = numZone;
+
+                int attente;
+                if((attente= semctl(idSem, numZone, GETVAL)) == -1){ // On récupères le nombre de processus restants
+                    perror("problème init");//suite
+                }
+
+                if (attente == 0) {
+                    printf("Cette zone est en cours de modification par un autre client, veuillez patientez ... \n");
+                }
+                else{
+                    semop(idSem,&opp,1); // att jteste un dernier truc
+                    
+                    // Le serveur renvoie au client le statut de la zone en cours
+                    //sendPourTCP(sizeof(attente), (char *)&attente, sockfd);
+                    send(newsockfd,&attente,sizeof(attente),0);
+
+                    // Le serveur attend en retour la nouvelle zone après que le client ait fini
+                    zone new;
+                    int err;
+                    err = recvPourTCP((char *) &new, newsockfd);
+                    printf("err reception new zone : %d \n", err);
+
+                    // Le serveur valide la modification en écrasant la zone dans le segment de mémoire
+                    p->zones[numZone] = new;
+    
+
+                    // Le serveur redonne l'accès à la zone
+                    semop(idSem,&opv,1);
+
+                    printf("test affichage p chez serv après modif\n");
+                    afficheZones(p);
+
+                    // Le serveur renvoie le segment entier au client
+                    envoiEspace(p, newsockfd, clientAddress.sin_addr);
+                }
+
+                sleep(90);
 
             }
+
                 exit(0);
         }
         else{
