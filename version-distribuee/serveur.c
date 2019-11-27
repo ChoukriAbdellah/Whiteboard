@@ -129,23 +129,26 @@ unsigned char * serialize_temp(unsigned char *buffer,  zone *value){
 }
 
 int sendPourTCP(int s, char* msg, int Socket){
+    // Printf en commentaires pour debug
+
     // On fait un envoi d'abord pour indiquer la taille à envoyer : 
 
     send(Socket,&s,sizeof(s),0);
+
     int i=0;
     int totalSend = 0;
-    printf("Total à envoyer : %d\n", s);
+    //printf("Total à envoyer : %d\n", s);
     while(totalSend <  s){
         int nbSend = 0;
         nbSend = send(Socket,msg+totalSend,s-totalSend,0);
-        printf("Iteration i=%d, nb send = %d\n", i, nbSend);
+        //printf("Iteration i=%d, nb send = %d\n", i, nbSend);
 
 
         if (nbSend == -1){
             return -1;
         }
         else if (nbSend == 0){
-             printf("Total envoyé: %d\n", totalSend);
+            //printf("Total envoyé: %d\n", totalSend);
             return 0;
         }
         else
@@ -154,6 +157,7 @@ int sendPourTCP(int s, char* msg, int Socket){
         sleep(1);
     }
 
+    //printf("Fin correcte\n");
     return 1;
 }
 
@@ -212,27 +216,30 @@ int main(int argc, char** argv){
                 // Zone 0
                 zone z0;
                 z0 = p->zones[0];
+                //unsigned char buffer[32], *ptr;
 
-                int err;
-
+                //ptr = serialize_temp(buffer, z0);
                 // On envoie la zone 0
 
-                printf("Serveur: Envoi en cours...");
+                printf("Serveur: Envoi en cours...\n");
 
                 int len = 0;
+                int err;
 
-                err = sendPourTCP(sizeof(zone), (char *) &z0, newsockfd);
-                if(err==0){
-                    fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = 0\n",inet_ntoa(clientAddress.sin_addr));
+                err = sendPourTCP(sizeof(z0), (char *) &z0, newsockfd);
+                //printf("err: %d \n", err);
+
+                switch(err){
+                    case 0:
+                        fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = 0\n",inet_ntoa(clientAddress.sin_addr));
+                        break;
+                    case -1:
+                        fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = -1\n",inet_ntoa(clientAddress.sin_addr));
+                        break;
+                    case 1:
+                        printf("Serveur: Envoi du contenu de l'espace mémoire au client (IP: %s) terminé.\n",inet_ntoa(clientAddress.sin_addr));
+                        break;
                 }
-                else if(err = -1){
-                    fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s) : send = -1\n",inet_ntoa(clientAddress.sin_addr));
-                }
-               // else if(err == -1){
-               //     fprintf(stderr, "Serveur: err-1");
-               // }
-                else
-                    printf("Serveur: Envoi du contenu de l'espace mémoire terminé.");
 
                 sleep(30);
 

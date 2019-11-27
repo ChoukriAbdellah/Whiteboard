@@ -134,9 +134,7 @@ void editZone(principale* p, int numZone){
         }
         
         
-         
-         
-    
+        
      
  }
  
@@ -273,7 +271,7 @@ int main(int argc, char **argv){
     afficheZones(shmaddr);
     //Affichage des notifications                                
    for (int i = 0; i < NB_ZONES_MAX; ++i) {
-																pthread_join(arrayT[i], NULL);
+        pthread_join(arrayT[i], NULL);
 								}
     
     
