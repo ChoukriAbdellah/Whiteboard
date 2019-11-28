@@ -13,7 +13,7 @@
 #include <errno.h> // Pour errno
 #include <netdb.h> 
 #include <netinet/in.h> 
-
+#include <pthread.h>
 #include "structures.h"
 #include "TCP.h"
 
@@ -154,63 +154,86 @@ void removeZone(principale p, int numZone, int Socket){
 
 }
 
-void menu(int Socket, principale p){
+int menu(int Socket, principale p){
  
-    int numZone, choixMenu, choixCorrect=0;
+    int numZone, choixMenu, choixCorrect=0, souhaiteQuitter=0;
 
 
     while (!choixCorrect){           
             printf("---------- MENU ---------- \n");
             printf("1. Modifier un document\n");
             printf("2. Supprimer un document \n");
-            printf("Tapez 1 ou 2 > ");
+            printf("3. Quitter \n");
+            printf("Tapez 1, 2 ou 3 > ");
 
             scanf("%d", &choixMenu);
 
-            printf("\nChoisissez la zone > ");
-
-            scanf("%d", &numZone);
 
             if(choixMenu == 1 || choixMenu == 2){
-                if(numZone >= 0 && numZone < 10){
+                printf("\nChoisissez la zone > ");
+
+                scanf("%d", &numZone);
+                if(numZone >= 0 && numZone < NB_ZONES_MAX){
                     choixCorrect++;
                 }
                 else
                     printf("\nNuméro de zone incorrect.\n");  
             }
+            else if(choixMenu == 3){
+                choixCorrect++;
+                souhaiteQuitter++;
+            }
+
             else
                 printf("\nNuméro du menu incorrect. \n");
     }
 
-    printf("avant send: choixMenu: %d numZone %d\n", choixMenu, numZone);
+    if(!souhaiteQuitter){
+        printf("avant send: choixMenu: %d numZone %d\n", choixMenu, numZone);
+        // Le client informe au serveur quel zone il souhaite modifier
+        //sendPourTCP(sizeof(numZone), (char *)&numZone, Socket);
+        send(Socket,&numZone,sizeof(numZone),0);
+        printf("Je send le num de la zone\n");
+        // Le client reçoit du serveur si la zone est accessible ou non
+        int statutZone;
+        //recvPourTCP((char *)&statutZone, Socket);
+        recv(Socket,&statutZone,sizeof(statutZone),0);
+        printf("debug \n");
+        printf("statut zone: %d\n", statutZone);
 
-    // Le client informe au serveur quel zone il souhaite modifier
-    //sendPourTCP(sizeof(numZone), (char *)&numZone, Socket);
-    send(Socket,&numZone,sizeof(numZone),0);
-    
-    // Le client reçoit du serveur si la zone est accessible ou non
-    int statutZone;
-    //recvPourTCP((char *)&statutZone, Socket);
-    recv(Socket,&statutZone,sizeof(statutZone),0);
-
-    printf("statut zone: %d\n", statutZone);
-
-    if (statutZone == 0){
-        printf("Du serveur: La zone que vous avez choisie n'est pas disponible pour le moment.\n");
-        printf("Vous pouvez en choisir une autre.\n");
-        menu(Socket, p);
+        if (statutZone == 10){
+            printf("Du serveur: La zone que vous avez choisie n'est pas disponible pour le moment.\n");
+            printf("Vous pouvez en choisir une autre.\n");
+            menu(Socket, p);
+        }
+        else{
+            if(choixMenu == 1)
+                editZone(p, numZone, Socket);
+            if(choixMenu == 2)
+                removeZone(p, numZone, Socket);
+        }
+        return 0;
     }
     else{
-        if(choixMenu == 1)
-            editZone(p, numZone, Socket);
-        if(choixMenu == 2)
-            removeZone(p, numZone, Socket);
+        printf("Vous avez choisi d'arrêter la connexion au serveur. \n");
+        return 1;
     }
 
-        
 }
 
 unsigned char * deserialize_int(unsigned char *buffer, int *value){}
+
+void* afficheMaj(void* args){
+    printf("Debug\t affichageMaj\n");
+    maj_struct_client* temp = args;
+    char t[1024];
+    int n;
+    n=recv(temp->sockfd,&t,strlen(t),0);
+    if (n== 1024)
+    {
+       printf("%s\n",t);
+    } 
+}
 
 int main(int argc, char** argv){
     int sockfd;//to create socket
@@ -232,13 +255,26 @@ int main(int argc, char** argv){
     //send to sever and receive from server
 
     principale p = receptionEspace(sockfd);
+    pthread_t thread1;
+    maj_struct_client *args = malloc(sizeof *args);
+    args->sockfd = sockfd;
+    //    *x= sockfd;
 
-    while(1){
-        afficheZones(p);
-        menu(sockfd, p);
-        p = receptionEspace(sockfd);
+    if(pthread_create(&thread1, NULL, afficheMaj, args) == -1) {
+                    perror("pthread_create");
+                    return EXIT_FAILURE;
     }
+    int souhaiteQuitter = 0;
+    while(!souhaiteQuitter){
+        afficheZones(p);
+        souhaiteQuitter = menu(sockfd, p);
+        
+        //Affichage des mises à jour s'il y'en a :      
+        pthread_join(thread1, NULL);
 
+        //p = receptionEspace(sockfd);
+        
+    }
     return 0;
 
 }

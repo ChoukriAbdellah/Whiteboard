@@ -1,12 +1,12 @@
 # ce qu'on met pas dans le git : 
 
-./version-centralisee/client
-./version-centralisee/serveur
-./version-centralisee/segment-memoire
-./version-centralisee/semaphores
+/version-centralisee/client
+/version-centralisee/serveur
+/version-centralisee/segment-memoire
+/version-centralisee/semaphores
 
 
-./version-distribuee/client
-./version-distribuee/serveur
-./version-distribuee/segment-memoire
-./version-distribuee/semaphores
+/version-distribuee/client
+/version-distribuee/serveur
+/version-distribuee/segment-memoire
+/version-distribuee/semaphores
