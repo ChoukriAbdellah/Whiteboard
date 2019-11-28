@@ -2,6 +2,8 @@
 
 /version-centralisee/client
 /version-centralisee/serveur
+/version-centralisee/serveur.o
+/version-centralisee/client.o
 /version-centralisee/segment-memoire
 /version-centralisee/semaphores
 
@@ -10,3 +12,6 @@
 /version-distribuee/serveur
 /version-distribuee/segment-memoire
 /version-distribuee/semaphores
+/version-distribuee/TCP.o
+/version-distribuee/serveur.o
+/version-distribuee/client.o

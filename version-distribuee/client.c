@@ -221,9 +221,9 @@ int menu(int Socket, principale p){
 
 }
 
-unsigned char * deserialize_int(unsigned char *buffer, int *value){}
+/*unsigned char * deserialize_int(unsigned char *buffer, int *value){}*/
 
-void* afficheMaj(void* args){
+/*void* afficheMaj(void* args){
     printf("Debug\t affichageMaj\n");
     maj_struct_client* temp = args;
     char t[1024];
@@ -233,14 +233,15 @@ void* afficheMaj(void* args){
     {
        printf("%s\n",t);
     } 
-}
+    
+}*/
 
 int main(int argc, char** argv){
     int sockfd;//to create socket
 
     struct sockaddr_in serverAddress;//client will connect on this
 
-    int n;
+    //int n;
 
     //create socket
     sockfd=socket(AF_INET,SOCK_STREAM,0);
@@ -255,22 +256,23 @@ int main(int argc, char** argv){
     //send to sever and receive from server
 
     principale p = receptionEspace(sockfd);
-    pthread_t thread1;
+
+   /* pthread_t thread1;
     maj_struct_client *args = malloc(sizeof *args);
     args->sockfd = sockfd;
-    //    *x= sockfd;
 
     if(pthread_create(&thread1, NULL, afficheMaj, args) == -1) {
                     perror("pthread_create");
                     return EXIT_FAILURE;
-    }
+    }*/
+
     int souhaiteQuitter = 0;
     while(!souhaiteQuitter){
         afficheZones(p);
         souhaiteQuitter = menu(sockfd, p);
         
         //Affichage des mises à jour s'il y'en a :      
-        pthread_join(thread1, NULL);
+        //pthread_join(thread1, NULL);
 
         //p = receptionEspace(sockfd);
         

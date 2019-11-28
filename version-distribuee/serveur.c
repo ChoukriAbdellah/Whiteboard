@@ -40,7 +40,7 @@ void envoiEspace(principale* p, int Socket, struct in_addr IP){
         // A chaque envoi, on envoie la zone i
         zone z;
         z = p->zones[i];
-        int len = 0;
+        //int len = 0;
         int err;
 
         err = sendPourTCP(sizeof(z), (char *) &z, Socket);
@@ -272,9 +272,8 @@ int main(int argc, char** argv){
     struct sockaddr_in serverAddress;//server receive on this address
     struct sockaddr_in clientAddress;//server sends to client on this address
 
-    int n, listener, rv;
-    char msg[TAILLE_MAX];
-    int clientAddressLength;
+    //int n, listener, rv;
+    socklen_t clientAddressLength;
     int pid;
     pthread_t thread1;
 
@@ -307,7 +306,7 @@ int main(int argc, char** argv){
             // On est dans le processus fils
             while(1){
                 // On met en place le thread d'envoi propre au client associé à ce processus fils
-                maj_struct_serveur* var;
+                maj_struct_serveur* var = malloc(sizeof *var);
                 var->my_addr= serverAddress;
                 var->sockfd= sockfd;
                 var->client= clientAddress;
