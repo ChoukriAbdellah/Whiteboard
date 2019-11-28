@@ -168,79 +168,26 @@ unsigned char * serialize_temp(unsigned char *buffer,  zone *value){
   return buffer;
 }
 
-void* sendMajForAllClient(void* arg){
-    maj_struct_serveur* tem= arg;
+/*void* sendMajForAllClient(maj_struct_serveur* tem){
     printf("je rentre dans senForAll\n");
     socklen_t sin_size = sizeof(struct sockaddr_in);
     int sockfd2;          // descripteurs de socket
-    fd_set readfds;               // ensemble des descripteurs en lecture qui seront surveilles par select
-    int t[FD_SETSIZE];            // tableau qui contiendra tous les descripteurs de sockets,
+             // tableau qui contiendra tous les descripteurs de sockets,
                                   // avec une taille egale a la taille max de l'ensemble d'une structure fd_set
-    int taille=0;                 // nombre de descripteurs dans le tableau precedent
+               // nombre de descripteurs dans le tableau precedent
     char buf[1024];               // espace necessaire pour stocker le message recu
 
     memset(buf,'\0',1024);        // initialisation du buffer qui sera utilisé
-    // association de la socket et des param reseaux du serveur
-    if(bind(tem->sockfd,(struct sockaddr*)&tem->my_addr,sizeof(tem->my_addr)) != 0)
-    {
-        perror("Erreur lors de l'appel a bind -> ");
-        exit(1);
-    }
-    // indication de la limite MAX de la file d'attente des connexions entrantes
-    if(listen(tem->sockfd,10) != 0)
-    {
-        perror("Erreur lors de l'appel a listen -> ");
-        exit(2);
-    }
-
-    printf("Attente de connexion\n");
-
-   /* t[0]=tem->sockfd; // on ajoute deja la socket d'ecoute au tableau de descripteurs
-    taille++;*/
- 
-
-    // indication de la limite MAX de la file d'attente des connexions entrantes
-    if(listen(tem->sockfd,10) != 0)
-    {
-        perror("Erreur lors de l'appel a listen -> ");
-        exit(2);
-    }
+  
     t[0]=tem->sockfd; // on ajoute deja la socket d'ecoute au tableau de descripteurs
     taille++;    // et donc on augmente "taille"
 
     while(1){
-        FD_ZERO(&readfds); //il faut remettre tt les elements ds readfds a chaque recommencement de la boucle,
-                          // vu que select modifie les ensembles
-        int j;
-        int sockmax=0;
-        for(j=0;j<taille;j++){
-            if(t[j] != 0)
-            FD_SET(t[j],&readfds); // on remet donc tous les elements dans readfds
-            if(sockmax < t[j])     // et on prend ici le "numero" de socket maximal pour la fonction select
-            sockmax = t[j];
-        }
-
-        if(select(sockmax+1,&readfds,NULL,NULL,NULL) == -1){ // on utilise le select sur toutes les sockets y compris celle d'ecoute
-            perror("Erreur lors de l'appel a select -> ");
-            exit(1);
-        }
-
-        if(FD_ISSET(tem->sockfd,&readfds)){ // si la socket d'ecoute est dans readfds, alors qqch lui a ete envoye (=connection d'un client)
-            if((sockfd2 = accept(tem->sockfd,(struct sockaddr*)&tem->client,&sin_size)) == -1){ // on accepte la connexion entrante et on cree une socket...
-                perror("Erreur lors de accept -> ");
-                exit(3);
-            }
-           // printf("Connexion etablie avec %s\n", inet_ntoa(client.sin_addr));
-            taille++; // ...qui est donc ajoutee au tableau de descripteurs
-            t[taille-1]=sockfd2;
-        }
         int i;
-        for(i=1;i<taille;i++){ // on parcourt tous les autres descripteurs du tableau
-            if(FD_ISSET(t[i],&readfds)){ // si une socket du tableau est dans readfds, alors qqch a ete envoye au serveur par un client
-                
+        for(i=1;i<taille;i++){ // on parcourt tous les autres descripteurs du tableau     
                 int k;
                 //char buf[100];
-                strcpy(buf,"une maj a ete réalisée \n");
+                strcpy(buf,"-------UNE MAJ VIENT D'ETRE  REALISEE---------");
                 for(k=1;k<taille;k++){ // puis on l'envoie a tous les clients...
                     
                         if(send(t[k],buf,strlen(buf),0) == -1){
@@ -249,9 +196,101 @@ void* sendMajForAllClient(void* arg){
                         }
                     
                 }
-            }
+            
         }
     }
+}*/
+
+/*void* sendMajForAllClient(void* arg){
+    maj_struct_serveur* tem= arg;
+    printf("je rentre dans senForAll\n");
+    socklen_t sin_size = sizeof(struct sockaddr_in);
+    int sockfd2;          // descripteurs de socket
+    int t[FD_SETSIZE];            // tableau qui contiendra tous les descripteurs de sockets,
+                                  // avec une taille egale a la taille max de l'ensemble d'une structure fd_set
+    int taille=0;                 // nombre de descripteurs dans le tableau precedent
+    char buf[1024];               // espace necessaire pour stocker le message recu
+
+    memset(buf,'\0',1024);        // initialisation du buffer qui sera utilisé
+  
+    t[0]=tem->sockfd; // on ajoute deja la socket d'ecoute au tableau de descripteurs
+    taille++;    // et donc on augmente "taille"
+
+    while(1){
+        int i;
+        for(i=1;i<taille;i++){ // on parcourt tous les autres descripteurs du tableau     
+                int k;
+                //char buf[100];
+                strcpy(buf,"-------UNE MAJ VIENT D'ETRE  REALISEE---------");
+                for(k=1;k<taille;k++){ // puis on l'envoie a tous les clients...
+                    
+                        if(send(t[k],buf,strlen(buf),0) == -1){
+                            perror("Erreur lors de l'appel a send -> ");
+                            exit(1);
+                        }
+                    
+                }
+            
+        }
+    }
+}*/
+
+void* MAJ(void* arg){
+    maj_struct_serveur *temp =  arg; 
+
+    int fd = open(FICHIER_SEMAPHORES, O_CREAT|O_WRONLY, 0644);
+    close(fd);
+
+    // On calcule notre clé
+    key_t cleSem;
+    if ( (cleSem = ftok(FICHIER_SEMAPHORES, CLE_SEMAPHORES)) == (key_t) -1){
+        perror("Erreur ftok ");
+        exit(EXIT_FAILURE);
+    }
+
+    int idSem=0;
+
+    if ((idSem=semget(cleSem, 1, 0666)) < 0){
+        if(errno == EEXIST)
+             fprintf(stderr, "La sémaphore (id=%d) existe deja\n", idSem);
+        else
+            perror("Erreur semget ");
+        exit(EXIT_FAILURE);
+    } 
+
+    //printf("Processus n°%d : La sémaphore a bien été créée et attachée.\n", getpid());
+	opp.sem_op = -1;
+	opp.sem_flg = 0;
+	
+	opv.sem_op = 1;
+	opv.sem_flg = 0;
+    
+
+        opp.sem_num = temp->index;
+		opv.sem_num = temp->index;
+        int attente;
+        while (1)
+        {
+            if((attente= semctl(idSem, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
+                perror("problème init");//suite
+            }
+
+            if (attente == 0){
+                while (semctl(idSem, temp->index, GETVAL) == 0){
+                    // On attend que le client ait fini sa modification
+                    // Pour plus tard : mettre un wait au lieu de boucler en boucle
+                }
+            
+                // Le client a fini sa modif
+                printf("Un client a modif une zone, go en informer tout le monde\n");
+                int msg = 500;
+                int n=send(temp->sockfd,&msg,sizeof(msg),0);
+                printf("j'ai envoyé %d octets\n", n);
+
+                //afficheZone(temp->p,temp->index);
+            }
+        }
+
 }
 
 int main(int argc, char** argv){
@@ -266,6 +305,8 @@ int main(int argc, char** argv){
     int idSem = initSemaphores(FICHIER_SEMAPHORES, CLE_SEMAPHORES);
     principale* p = initZones(FICHIER_PARTAGE, CLE_PARTAGE);
 
+
+
     int sockfd;//to create socket
     int newsockfd;//to accept connection
 
@@ -275,8 +316,6 @@ int main(int argc, char** argv){
     //int n, listener, rv;
     socklen_t clientAddressLength;
     int pid;
-    pthread_t thread1;
-
 
     //create socket
     sockfd=socket(AF_INET,SOCK_STREAM,0);
@@ -305,15 +344,19 @@ int main(int argc, char** argv){
         if(pid==0){
             // On est dans le processus fils
             while(1){
+                pthread_t arrayT[NB_ZONES_MAX];
                 // On met en place le thread d'envoi propre au client associé à ce processus fils
-                maj_struct_serveur* var = malloc(sizeof *var);
-                var->my_addr= serverAddress;
-                var->sockfd= sockfd;
-                var->client= clientAddress;
 
-                if(pthread_create(&thread1, NULL, sendMajForAllClient, var) == -1) {
-                    perror("pthread_create");
-                    return EXIT_FAILURE;
+                for(int i=0; i<NB_ZONES_MAX; i++){
+                    maj_struct_serveur* var = malloc(sizeof *var);
+                    var->sockfd= newsockfd;
+                    var->memoire = p;
+                    var->index = i;
+
+                    if(pthread_create(&arrayT[i], NULL, MAJ, var) == -1) {
+                        perror("pthread_create");
+                        return EXIT_FAILURE;
+                    }
                 }
 
                 envoiEspace(p, newsockfd, clientAddress.sin_addr);
@@ -382,14 +425,16 @@ int main(int argc, char** argv){
 
                         // Le serveur renvoie le segment entier au client
                         envoiEspace(p, newsockfd, clientAddress.sin_addr);
-
-                        //Envoi des mises à jour s'il y'en a
-                        pthread_join(thread1, NULL);
                         
 
                     }
 
                 }
+
+                for (int i = 0; i < NB_ZONES_MAX; ++i) {
+                    pthread_join(arrayT[i], NULL);
+                }
+
                 //sleep(5);
 
             }

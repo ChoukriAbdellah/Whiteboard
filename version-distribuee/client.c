@@ -47,60 +47,6 @@ principale receptionEspace(int Socket){
     return p;
 }
 
-
-/*void* MAJ(void* arg){
-      data *temp =  arg; 
-
-      int fd = open(FICHIER_SEMAPHORES, O_CREAT|O_WRONLY, 0644);
-    close(fd);
-
-    // On calcule notre clé
-    key_t cleSem;
-    if ( (cleSem = ftok(FICHIER_SEMAPHORES, CLE_SEMAPHORES)) == (key_t) -1){
-        perror("Erreur ftok ");
-        exit(EXIT_FAILURE);
-    }
-
-    int idSem=0;
-
-    if ((idSem=semget(cleSem, 1, 0666)) < 0){
-        if(errno == EEXIST)
-             fprintf(stderr, "La sémaphore (id=%d) existe deja\n", idSem);
-        else
-            perror("Erreur semget ");
-        exit(EXIT_FAILURE);
-    } 
-
-    //printf("Processus n°%d : La sémaphore a bien été créée et attachée.\n", getpid());
-	opp.sem_op = -1;
-	opp.sem_flg = 0;
-	
-	opv.sem_op = 1;
-	opv.sem_flg = 0;
-    
-
-        opp.sem_num = temp->index;
-		opv.sem_num = temp->index;
-        int attente;
-        while ( 1)
-        {
-          if((attente= semctl(idSem, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
-            perror("problème init");//suite
-        }
-         if (attente == 0)
-         {
-             while (semctl(idSem, temp->index, GETVAL) == 0)
-             {
-                 // On attend que le client ait fini sa modification
-             }
-             
-             afficheZone(temp->p,temp->index);
-             
-         }
-        }   
- }*/
-
-
 void editZone(principale p, int numZone, int Socket){
     char newData[TAILLE_MAX];
     printf("Vous vous apprêtez à modifier la zone %d.\n", numZone);
@@ -120,10 +66,10 @@ void editZone(principale p, int numZone, int Socket){
 
     // Le client envoie au serveur la zone après l'avoir modifiée
 
-    printf("affichage zone modifiée chez client avant de la renvoyer \n");
+    //printf("affichage zone modifiée chez client avant de la renvoyer \n");
     zone new;
     new = p.zones[numZone];
-    afficheZone(new);
+    //afficheZone(new);
 
     sendPourTCP(sizeof(new), (char *) &new, Socket);
 
@@ -189,17 +135,17 @@ int menu(int Socket, principale p){
     }
 
     if(!souhaiteQuitter){
-        printf("avant send: choixMenu: %d numZone %d\n", choixMenu, numZone);
+        //printf("avant send: choixMenu: %d numZone %d\n", choixMenu, numZone);
+
         // Le client informe au serveur quel zone il souhaite modifier
-        //sendPourTCP(sizeof(numZone), (char *)&numZone, Socket);
         send(Socket,&numZone,sizeof(numZone),0);
-        printf("Je send le num de la zone\n");
+        //printf("Je send le num de la zone\n");
+
         // Le client reçoit du serveur si la zone est accessible ou non
         int statutZone;
-        //recvPourTCP((char *)&statutZone, Socket);
         recv(Socket,&statutZone,sizeof(statutZone),0);
-        printf("debug \n");
-        printf("statut zone: %d\n", statutZone);
+        //printf("debug \n");
+        //printf("statut zone: %d\n", statutZone);
 
         if (statutZone == 10){
             printf("Du serveur: La zone que vous avez choisie n'est pas disponible pour le moment.\n");
@@ -223,25 +169,26 @@ int menu(int Socket, principale p){
 
 /*unsigned char * deserialize_int(unsigned char *buffer, int *value){}*/
 
-/*void* afficheMaj(void* args){
-    printf("Debug\t affichageMaj\n");
+void* afficheMaj(void* args){
+    printf("/////////Debug affichageMaj/////////\n");
     maj_struct_client* temp = args;
-    char t[1024];
-    int n;
-    n=recv(temp->sockfd,&t,strlen(t),0);
-    if (n== 1024)
-    {
-       printf("%s\n",t);
-    } 
+
+    while(1){
+        int maj;
+        recv(temp->sockfd,&maj,sizeof(maj),0);
+        if (maj== 500)
+        {
+        printf("Maj bien reçue : %d \n",maj);
+        } 
+    }
     
-}*/
+    pthread_exit(NULL);
+}
 
 int main(int argc, char** argv){
     int sockfd;//to create socket
 
     struct sockaddr_in serverAddress;//client will connect on this
-
-    //int n;
 
     //create socket
     sockfd=socket(AF_INET,SOCK_STREAM,0);
@@ -257,14 +204,14 @@ int main(int argc, char** argv){
 
     principale p = receptionEspace(sockfd);
 
-   /* pthread_t thread1;
+    pthread_t thread1;
     maj_struct_client *args = malloc(sizeof *args);
     args->sockfd = sockfd;
 
     if(pthread_create(&thread1, NULL, afficheMaj, args) == -1) {
-                    perror("pthread_create");
-                    return EXIT_FAILURE;
-    }*/
+        perror("pthread_create");
+        return EXIT_FAILURE;
+    }
 
     int souhaiteQuitter = 0;
     while(!souhaiteQuitter){
@@ -272,11 +219,12 @@ int main(int argc, char** argv){
         souhaiteQuitter = menu(sockfd, p);
         
         //Affichage des mises à jour s'il y'en a :      
-        //pthread_join(thread1, NULL);
+        
 
         //p = receptionEspace(sockfd);
         
     }
+    pthread_join(thread1, NULL);
     return 0;
 
 }
