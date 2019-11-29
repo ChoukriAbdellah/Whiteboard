@@ -3,7 +3,7 @@
 
 #include <sys/sem.h>
 
-#define PORT 8070
+#define PORT 5051
 #define SERVER_IP "127.0.0.1"
 #define TAILLE_MAX 2014
 
@@ -26,10 +26,7 @@ struct sembuf opv;
 #define CLE_SEMAPHORES 35
 
 
-typedef struct{ 
-    int sockfd;
-    int numZone;
-} maj_struct_client;
+
 
 
 /* Structures à partager dans le segment */
@@ -44,6 +41,13 @@ typedef struct{
 typedef struct {
     zone zones[NB_ZONES_MAX];
 } principale;
+
+typedef struct{ 
+    int sockfd;
+    int numZone;
+    principale memoire;
+} maj_struct_client;
+
 typedef struct{ 
     int sockfd;
     principale* memoire;

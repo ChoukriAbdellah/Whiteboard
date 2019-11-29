@@ -259,15 +259,15 @@ void* MAJ(void* arg){
     } 
 
     //printf("Processus n°%d : La sémaphore a bien été créée et attachée.\n", getpid());
-	opp.sem_op = -1;
-	opp.sem_flg = 0;
+	// opp.sem_op = -1;
+	// opp.sem_flg = 0;
 	
-	opv.sem_op = 1;
-	opv.sem_flg = 0;
+	// opv.sem_op = 1;
+	// opv.sem_flg = 0;
     
 
-        opp.sem_num = temp->index;
-		opv.sem_num = temp->index;
+    //     opp.sem_num = temp->index;
+	// 	opv.sem_num = temp->index;
         int attente;
         while (1)
         {
@@ -280,12 +280,26 @@ void* MAJ(void* arg){
                     // On attend que le client ait fini sa modification
                     // Pour plus tard : mettre un wait au lieu de boucler en boucle
                 }
-            
-                // Le client a fini sa modif
+                 // Le client a fini sa modif
                 printf("Un client a modif une zone, go en informer tout le monde\n");
                 int msg = 500;
                 int n=send(temp->sockfd,&msg,sizeof(msg),0);
                 printf("j'ai envoyé %d octets\n", n);
+                // Le client a fini sa modif
+                //printf("Un client a modif une zone, go en informer tout le monde\n");
+                zone zoneModifie = temp->memoire->zones[temp->index];
+                int erreur = sendPourTCP(sizeof(zoneModifie), (char*) &zoneModifie, temp->sockfd);
+                switch(erreur){
+                    case 0:
+                        fprintf(stderr, "Serveur: Erreur reçue du client (IP: , zone n°%d) : send = 0\n", temp->index);
+                        break;
+                    case -1:
+                        fprintf(stderr, "Serveur: Erreur reçue du client (IP: , zone n°%d) : send = -1\n", temp->index);
+                        break;
+                    case 1:
+                        //printf("Serveur: Envoi de la zone %d au client (IP: %s) terminé.\n",i, inet_ntoa(IP));
+                        break;
+                }
 
                 //afficheZone(temp->p,temp->index);
             }
@@ -342,12 +356,9 @@ int main(int argc, char** argv){
         //Un processus fils est crée pour chaque nouveau client
         pid=fork();
         if(pid==0){
+            pthread_t arrayT[NB_ZONES_MAX];
             // On est dans le processus fils
-            while(1){
-                pthread_t arrayT[NB_ZONES_MAX];
-                // On met en place le thread d'envoi propre au client associé à ce processus fils
-
-                for(int i=0; i<NB_ZONES_MAX; i++){
+            for(int i=0; i<NB_ZONES_MAX; i++){
                     maj_struct_serveur* var = malloc(sizeof *var);
                     var->sockfd= newsockfd;
                     var->memoire = p;
@@ -357,7 +368,13 @@ int main(int argc, char** argv){
                         perror("pthread_create");
                         return EXIT_FAILURE;
                     }
-                }
+            }
+
+            while(1){
+                
+                // On met en place le thread d'envoi propre au client associé à ce processus fils
+
+                
 
                 envoiEspace(p, newsockfd, clientAddress.sin_addr);
                     

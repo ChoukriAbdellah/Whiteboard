@@ -17,6 +17,8 @@
 #include "structures.h"
 #include "TCP.h"
 
+pthread_mutex_t verrou= PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t structureRecu= PTHREAD_COND_INITIALIZER;
 
 void afficheZone(zone z){
     printf("---------- Zone n°%d ---------\n", z.numeroZone);
@@ -170,16 +172,33 @@ int menu(int Socket, principale p){
 /*unsigned char * deserialize_int(unsigned char *buffer, int *value){}*/
 
 void* afficheMaj(void* args){
-    printf("/////////Debug affichageMaj/////////\n");
+   
     maj_struct_client* temp = args;
-
+     /* printf("/////////////////MAJ RECU//////////////////// \n");
+     pthread_mutex_lock(&verrou);
+	 pthread_cond_wait (&structureRecu, &verrou);
+     pthread_mutex_unlock(&verrou);*/
     while(1){
+       
         int maj;
         recv(temp->sockfd,&maj,sizeof(maj),0);
         if (maj== 500)
         {
         printf("Maj bien reçue : %d \n",maj);
+
         } 
+        zone reception;
+        recvPourTCP((char*) &reception, temp->sockfd);
+        printf("Debug !!!!!!!!!\n");
+        afficheZone(reception);
+        
+        /*zone reception;
+        recvPourTCP((char *) &reception, temp->sockfd);
+        temp->memoire.zones[reception.numeroZone] = reception;
+        printf("/////////UNE MAJ VIENT D ETRE REALISEE SUR CETTE ZONE %d/////////\n", reception.numeroZone);*/
+       
+        //afficheZone(reception);
+        
     }
     
     pthread_exit(NULL);
@@ -203,11 +222,11 @@ int main(int argc, char** argv){
     //send to sever and receive from server
 
     principale p = receptionEspace(sockfd);
-
+    pthread_cond_broadcast(&structureRecu);
     pthread_t thread1;
     maj_struct_client *args = malloc(sizeof *args);
     args->sockfd = sockfd;
-
+    args->memoire=p;
     if(pthread_create(&thread1, NULL, afficheMaj, args) == -1) {
         perror("pthread_create");
         return EXIT_FAILURE;
