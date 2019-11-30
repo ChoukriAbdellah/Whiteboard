@@ -371,7 +371,7 @@ int main(int argc, char** argv){
                 exit(0);
         }
         else{
-            printf("Serveur : Le client (IP: %s) s'est déconnecté.\n", inet_ntoa(clientAddress.sin_addr));
+            //printf("Serveur : Le client (IP: %s) s'est déconnecté.\n", inet_ntoa(clientAddress.sin_addr));
             close(newsockfd);
             // Le parent ferme la socket
             }

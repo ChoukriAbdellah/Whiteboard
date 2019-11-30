@@ -3,7 +3,7 @@
 #include "affichage.h"
 
 void afficheZone(zone z){
-    printf("---------- Zone n°%d ---------\n", z.numeroZone);
+    printf("---------- Document n°%d ---------\n", z.numeroZone);
     printf("\t Titre : %s \n \n",z.titre);
     printf("%s \n \n", z.texte);
             

@@ -41,7 +41,7 @@ principale receptionEspace(int Socket){
 
 void editZone(principale p, int numZone, int Socket){
     char newData[TAILLE_MAX];
-    printf("Vous vous apprêtez à modifier la zone %d.\n\n", numZone);
+    printf("Vous vous apprêtez à modifier le document n°%d.\n\n", numZone);
     afficheZone(p.zones[numZone]);
 
     int veutStopModif=0;
@@ -85,6 +85,9 @@ void editZone(principale p, int numZone, int Socket){
             //h = gethostbyname(hostname);
             //printf("h_name: %s\n", h->h_name);
 
+            // Pour enlever le "\n" à la fin de la chaine saisie : 
+            newData[strlen(newData)-1] = '\0';
+        
             if(choix == 1){
                 // On remplace le titre directement
                 strcpy(p.zones[numZone].titre, newData);
@@ -145,7 +148,7 @@ int menu(int Socket, principale p){
     while (!choixCorrect){           
             printf("\n ---------- MENU ---------- \n\n");
             printf("1. Modifier un document\n");
-            printf("2. Supprimer un document \n");
+            printf("2. Réinitialiser un document \n");
             printf("3. Quitter \n\n");
             printf("Tapez 1, 2 ou 3 > ");
 
