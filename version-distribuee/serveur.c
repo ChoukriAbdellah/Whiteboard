@@ -23,6 +23,7 @@
 //pthread_cond_t *zoneModifiee = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
 //for(int i=0; i<NB_ZONES_MAX; i++) zoneModifiee[i] = PTHREAD_COND_INITIALIZER;
 pthread_cond_t zoneModifiee = PTHREAD_COND_INITIALIZER;
+pthread_cond_t zoneModifiee2 = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t verrou = PTHREAD_MUTEX_INITIALIZER;
 
 
@@ -166,17 +167,45 @@ void* MAJ(void* arg){
                 perror("problème init");//suite
             }
 
+            /*if(attente == 0) {
+                while (attente == 0)
+                {
+                    
+                }
+                
+            }*/
+
             pthread_mutex_lock(&verrou);
-            while(attente == 1){
+            while(attente != 0){
                 //printf("thread n°%d : en attente qu'un client accede à une zone\n", temp->index);
                 pthread_cond_wait(&zoneModifiee, &verrou);
                 if((attente = semctl(idSem, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
                     perror("problème init");//suite
                 }
-            }
+            }// la c le premier wait tant que personne a modif le truc (attente != 0)
+
             pthread_mutex_unlock(&verrou);
 
-            printf("thread n°%d : peut agir (fin modif)\n", temp->index);
+            printf("thread n°%d : en cours de modif\n", temp->index);
+
+            pthread_mutex_lock(&verrou);
+            while(attente != 1){
+                //printf("thread n°%d : en attente qu'un client accede à une zone\n", temp->index);
+                pthread_cond_wait(&zoneModifiee2, &verrou);
+                if((attente = semctl(idSem, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
+                    perror("problème init");//suite
+                }
+            }// la c le premier wait tant que personne a modif le truc (attente != 0)
+
+            pthread_mutex_unlock(&verrou);
+
+            printf("thread n°%d : fin modif\n", temp->index);
+            // Là le thread doit envoyer la mise à jour
+            maj m;
+            m.msg = 500;
+            sendPourTCP(sizeof(m), (char *) &m, temp->sockfd);
+            //oprintf("j'ai envoyé %d octets\n", n);
+
 
         /*while (1)
         {
@@ -292,7 +321,7 @@ int main(int argc, char** argv){
                 // Le serveur reçoit une zone où le client souhaite intervenir
                 int zoneOccupee;
                 zoneOccupee=1;
-                while(zoneOccupee == 1){//Envoie tu msg d err ( zone occupée) en boucle tant que le client continu de dmd
+                while(1){//Envoie tu msg d err ( zone occupée) en boucle tant que le client continu de dmd
                                             // l accée a une zone occupée
                     // Opération P
                     opp.sem_op = -1;
@@ -310,35 +339,56 @@ int main(int argc, char** argv){
                     opv.sem_num = numZone;
 
                     int attente;
+                    printf("Avant attente\n");
                     if((attente= semctl(idSem, numZone, GETVAL)) == -1){ // On récupères le nombre de processus restants
                         perror("problème init");//suite
                     }
 
                     if (attente == 0) {
                         printf("Cette zone est en cours de modification par un autre client, veuillez patientez ... \n");
-                        int msg_attente;
-                        msg_attente=10;
-                        if(send(newsockfd ,&msg_attente , sizeof(msg_attente) , 0) < 0)
-                            {
-                                puts("L'envoi a échoué");
-                                return 1;
-                            }
+                               zone z;
+                        char titre[10] ="erreur";
+                        char createur[10]= "Admin";
+                        char texte[80]= "Du serveur: La zone que vous avez choisie n'est pas disponible pour le moment.";
+                        z.numeroZone=-1;
+                        strcpy(z.titre, titre);
+                        strcpy(z.lastModif, createur);
+                        strcpy(z.texte, texte);
+                        int err;
+
+                        err = sendPourTCP(sizeof(z), (char *) &z, newsockfd);
+                        //printf("err: %d \n", err);
+                        switch(err){
+                        case 0:
+                            fprintf(stderr, "Serveur: Erreur reçue  : send = 0 pour la zone %d\n",  z.numeroZone);
+                            break;
+                        case -1:
+                            fprintf(stderr, "Serveur: Erreur reçue  send = -1 pour la zone %d\n", z.numeroZone);
+                            break;
+                        case 1:
+                            //printf("Serveur: Envoi de la zone %d au client (IP: %s) terminé.\n",i, inet_ntoa(IP));
+                            break;
+                        }
+                        
+                    
                     }
 
                     else{
                         zoneOccupee++;
                         semop(idSem,&opp,1);
-                        
+                        pthread_cond_broadcast(&zoneModifiee); // Il reveille le thread en cours de modif
+                        int test = 0;
                         // Le serveur renvoie au client le statut de la zone en cours
                         //sendPourTCP(sizeof(attente), (char *)&attente, sockfd);
-                        send(newsockfd,&attente,sizeof(attente),0);
-
+                        printf("Avant send 2\n");
+                        send(newsockfd,&(test),sizeof(test),0);
+                        printf("Apres send 2\n");
                         // Le serveur attend en retour la nouvelle zone après que le client ait fini
                         zone new;
 
                         //int err;
                         /*err = */recvPourTCP((char *) &new, newsockfd);
-                        pthread_cond_broadcast(&zoneModifiee);
+                        pthread_cond_broadcast(&zoneModifiee2); // Il reveille le thread en fin de modif
                         //printf("err reception new zone : %d \n", err);
 
                         // Le serveur valide la modification en écrasant la zone dans le segment de mémoire

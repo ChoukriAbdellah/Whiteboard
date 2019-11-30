@@ -40,7 +40,7 @@ typedef struct {
 typedef struct{ 
     int sockfd;
     int numZone;
-    //principale memoire;
+    principale memoire;
 } maj_struct_client;
 
 typedef struct{ 

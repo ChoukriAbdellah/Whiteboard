@@ -20,20 +20,33 @@
 #include "affichage.h"
 
 pthread_mutex_t verrou= PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t structureRecu= PTHREAD_COND_INITIALIZER;
+pthread_cond_t waitThread= PTHREAD_COND_INITIALIZER;
+int activerMAJ=0;
 
 principale receptionEspace(int Socket){
 
    printf("\nClient: Structure en cours de reception...\n");
     principale p;    
-
+     pthread_mutex_lock(&verrou);
+     activerMAJ = 0;
+     printf("je viens de désactiver le thread\n");
+     pthread_mutex_unlock(&verrou);
     for(int i=0; i<NB_ZONES_MAX; i++){
         zone reception;
-        //pthread_mutex_lock(&verrou);
+
+       
         recvPourTCP((char *) &reception, Socket);
-        //pthread_mutex_unlock(&verrou);
+        
+        
         p.zones[i] = reception;
     }
+    pthread_mutex_lock(&verrou);
+    activerMAJ = 1;
+    printf("je viens de réactiver le thread\n");
+    pthread_mutex_unlock(&verrou);
+
+    pthread_cond_broadcast(&waitThread);
+
 
     printf("Client: Tout a bien été reçu.\n");
     return p;
@@ -182,14 +195,33 @@ int menu(int Socket, principale p){
         //printf("Je send le num de la zone\n");
 
         // Le client reçoit du serveur si la zone est accessible ou non
-        int statutZone;
-        //pthread_mutex_lock(&verrou);
-        recv(Socket,&statutZone,sizeof(statutZone),0);
+         
+ 
+        //printf("///////////////////Avant receive/////////////////////////\n");
+       
+        //printf("Socket : %d  /////////////////// statutZone : %d ///////////////////\n", Socket, statutZone);
+        pthread_mutex_lock(&verrou);
+        activerMAJ = 0;
+        printf("je viens de désactiver le thread\n");
+        pthread_mutex_unlock(&verrou);
+          
+        zone reception;
+        recvPourTCP((char *) &reception, Socket);
+        
+        pthread_mutex_lock(&verrou);
+        activerMAJ = 1;
+        printf("je viens de réactiver le thread\n");
+        pthread_mutex_unlock(&verrou);
+
+       // pthread_cond_broadcast(&waitThread);
+        
+
+        //printf("////////////////////Aprse receive//////////////////////// \n");
         //pthread_mutex_unlock(&verrou);
         //printf("debug \n");
         //printf("statut zone: %d\n", statutZone);
 
-        if (statutZone == 10){
+        if (reception.numeroZone == -1){
             printf("Du serveur: La zone que vous avez choisie n'est pas disponible pour le moment.\n");
             printf("Vous pouvez en choisir une autre.\n");
             menu(Socket, p);
@@ -211,8 +243,22 @@ int menu(int Socket, principale p){
 
 void* afficheMaj(void* args){
    
-    //maj_struct_client* temp = args;
-     /* printf("/////////////////MAJ RECU//////////////////// \n");
+    maj_struct_client* temp = args;
+     printf("thread client en place activerMAJ = %d\n", activerMAJ);
+    while(1){
+        pthread_mutex_lock(&verrou);
+        while(activerMAJ != 1){
+            printf("thread mis en attente le temps de recv\n");
+            pthread_cond_wait(&waitThread, &verrou);
+        }
+        pthread_mutex_unlock(&verrou);
+        // Là le thread est autorisé à recevoir
+        maj m;
+        pthread_mutex_lock(&verrou);
+        recvPourTCP((char *)&m, temp->sockfd);
+        printf("(debug)Entier reçu %d après mise à jour (activerMAJ=%d)\n",m.msg, activerMAJ);
+    }
+    /* printf("/////////////////MAJ RECU//////////////////// \n");
      pthread_mutex_lock(&verrou);
 	 pthread_cond_wait (&structureRecu, &verrou);
      pthread_mutex_unlock(&verrou);*/
@@ -241,7 +287,7 @@ void* afficheMaj(void* args){
        
         //afficheZone(reception);
         
-    //}*/
+    //}
     
     pthread_exit(NULL);
 }
@@ -273,16 +319,16 @@ int main(int argc, char** argv){
     connect(sockfd,(struct sockaddr *)&serverAddress,sizeof(serverAddress));
     //send to sever and receive from server
 
-    //pthread_cond_broadcast(&structureRecu);
-    //pthread_t thread1;
+    pthread_t thread1;
+    principale p = receptionEspace(sockfd); // ca bloque ici 
 
     maj_struct_client *args = malloc(sizeof *args);
     args->sockfd = sockfd;
-    //args->memoire=p;
-    /*if(pthread_create(&thread1, NULL, afficheMaj, args) == -1) {
+    args->memoire=p;
+    if(pthread_create(&thread1, NULL, afficheMaj, args) == -1) {
         perror("pthread_create");
         return EXIT_FAILURE;
-    }*/
+    }
 
     //pthread_mutex_lock(&verrou);
     //principale p = receptionEspace(sockfd);
@@ -290,12 +336,14 @@ int main(int argc, char** argv){
 
     int souhaiteQuitter = 0;
     while(!souhaiteQuitter){
-        principale p = receptionEspace(sockfd);
+       
+        // lock
         souhaiteQuitter = menu(sockfd, p);
-        printf("Debugg souhaiteQuitter : %d", souhaiteQuitter); 
+        p = receptionEspace(sockfd);
+        // unock
         //Affichage des mises à jour s'il y'en a :   
     }
-    //pthread_join(thread1, NULL);
+    pthread_join(thread1, NULL);
     return 0;
 
 }
