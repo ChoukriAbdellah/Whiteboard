@@ -289,6 +289,7 @@ int main(int argc, char** argv){
     while(!souhaiteQuitter){
         principale p = receptionEspace(sockfd);
         souhaiteQuitter = menu(sockfd, p);
+        printf("Debugg souhaiteQuitter : %d", souhaiteQuitter); 
         //Affichage des mises à jour s'il y'en a :   
     }
     //pthread_join(thread1, NULL);
