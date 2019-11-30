@@ -3,8 +3,6 @@
 
 #include <sys/sem.h>
 
-#define PORT 5051
-#define SERVER_IP "127.0.0.1"
 #define TAILLE_MAX 2014
 
 // Nombre de zones max
@@ -26,15 +24,12 @@ struct sembuf opv;
 #define CLE_SEMAPHORES 35
 
 
-
-
-
 /* Structures à partager dans le segment */
 
 typedef struct{ 
     int numeroZone;
     char titre[TAILLE_MAX];
-    char createurs[TAILLE_MAX];
+    char lastModif[TAILLE_MAX];
     char texte[TAILLE_MAX];
 } zone;
 
@@ -45,7 +40,7 @@ typedef struct {
 typedef struct{ 
     int sockfd;
     int numZone;
-    principale memoire;
+    //principale memoire;
 } maj_struct_client;
 
 typedef struct{ 
@@ -53,6 +48,10 @@ typedef struct{
     principale* memoire;
     int index ;
 } maj_struct_serveur;
+
+typedef struct {
+    int msg;
+} maj;
 
 typedef struct{
     principale* p;
@@ -70,11 +69,11 @@ union semun {
 };
 
 // Operations
-struct sembuf op[] = {
+/*struct sembuf op[] = {
     { 0, -1, SEM_UNDO }, // P
     { 0, 1, SEM_UNDO }, // V
     {0, 0, SEM_UNDO} // Z
-};  
+};  */
 
  
 /* Ou sinon : */

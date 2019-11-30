@@ -14,25 +14,13 @@
 #include <netdb.h> 
 #include <netinet/in.h> 
 #include <pthread.h>
+
 #include "structures.h"
 #include "TCP.h"
+#include "affichage.h"
 
 pthread_mutex_t verrou= PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t structureRecu= PTHREAD_COND_INITIALIZER;
-
-void afficheZone(zone z){
-    printf("---------- Zone n°%d ---------\n", z.numeroZone);
-    printf("\t Titre : %s \n \n",z.titre);
-    printf("%s \n \n", z.texte);
-            
-    printf("Auteur(s) : %s \n \n", z.createurs);
-}
-
-void afficheZones(principale p){
-    for(int i=0; i<NB_ZONES_MAX; i++){
-        afficheZone(p.zones[i]);
-    }
-}
 
 principale receptionEspace(int Socket){
 
@@ -41,7 +29,9 @@ principale receptionEspace(int Socket){
 
     for(int i=0; i<NB_ZONES_MAX; i++){
         zone reception;
+        //pthread_mutex_lock(&verrou);
         recvPourTCP((char *) &reception, Socket);
+        //pthread_mutex_unlock(&verrou);
         p.zones[i] = reception;
     }
 
@@ -51,20 +41,64 @@ principale receptionEspace(int Socket){
 
 void editZone(principale p, int numZone, int Socket){
     char newData[TAILLE_MAX];
-    printf("Vous vous apprêtez à modifier la zone %d.\n", numZone);
-    printf("Entrez vos modifications > ");
+    printf("Vous vous apprêtez à modifier la zone %d.\n\n", numZone);
+    afficheZone(p.zones[numZone]);
 
-    // Cela permet de récupérer un caractère retour à la ligne si il est resté après un scanf de l'utilisateur
-    fgetc(stdin);
+    int veutStopModif=0;
+    while(!veutStopModif){
+        int choixCorrect = 0;
+        int choix;
+        while (!choixCorrect){     
+                printf("\n1. Modifier le titre\n");
+                printf("2. Modifier le texte \n");
+                printf("3. Terminer la modification\n \n");
+                printf("Tapez 1, 2 ou 3 > ");
 
-    // Maintenant fgets ne récupère pas le retour à la ligne mais la prochaine saisie
-    if ((fgets(newData, TAILLE_MAX, stdin)) == NULL){
-        perror("fgets : ");
-        exit(EXIT_FAILURE);
+                scanf("%d", &choix);
+
+                if(choix == 1 || choix == 2 || choix == 3)
+                    choixCorrect++;
+                else
+                    printf("\nChoix incorrect. \n");
+        }
+
+        if(choix == 3)
+            veutStopModif++;
+        
+        else{
+            printf("Entrez vos modifications > ");
+
+            // Cela permet de récupérer un caractère retour à la ligne si il est resté après un scanf de l'utilisateur
+            fgetc(stdin);
+
+            // Maintenant fgets ne récupère pas le retour à la ligne mais la prochaine saisie
+            if ((fgets(newData, TAILLE_MAX, stdin)) == NULL){
+                perror("fgets : ");
+                exit(EXIT_FAILURE);
+            }
+
+            char hostname[1024];
+            hostname[1023] = '\0';
+            gethostname(hostname, 1023);
+            //printf("Hostname: %s\n", hostname);
+            //struct hostent* h;
+            //h = gethostbyname(hostname);
+            //printf("h_name: %s\n", h->h_name);
+
+            if(choix == 1){
+                // On remplace le titre directement
+                strcpy(p.zones[numZone].titre, newData);
+                strcpy(p.zones[numZone].lastModif,hostname);
+            }
+            else if(choix == 2){
+                // Ici on ajoute la modification à la suite du texte déjà présent
+                strcat(p.zones[numZone].texte, " ");
+                strcat(p.zones[numZone].texte, newData);
+                strcpy(p.zones[numZone].lastModif, hostname);
+            }
+        }
+
     }
-
-    strcat(p.zones[numZone].texte, " ");
-    strcat(p.zones[numZone].texte, newData);
 
     // Le client envoie au serveur la zone après l'avoir modifiée
 
@@ -81,7 +115,7 @@ void editZone(principale p, int numZone, int Socket){
 void removeZone(principale p, int numZone, int Socket){
     char newData[TAILLE_MAX];
     int n;
-    printf("Vous vous apprêtez à supprimer la zone %d.\n", numZone);
+    printf("\nVous vous apprêtez à supprimer le document n°%d.\n\n", numZone);
     printf("Etes vous sur de vouloir supprimer le contenu de cette Zone ? > ");
     scanf("%s",newData);
     n=strcmp(newData,"oui");
@@ -97,7 +131,7 @@ void removeZone(principale p, int numZone, int Socket){
        printf("Contenu supprimé!\n");
     }
     else{
-    printf("Contenu non supprimé!\n");
+        printf("Contenu non supprimé!\n");
     }
 
 }
@@ -106,19 +140,20 @@ int menu(int Socket, principale p){
  
     int numZone, choixMenu, choixCorrect=0, souhaiteQuitter=0;
 
+    afficheZonesLeger(p);
 
     while (!choixCorrect){           
-            printf("---------- MENU ---------- \n");
+            printf("\n ---------- MENU ---------- \n\n");
             printf("1. Modifier un document\n");
             printf("2. Supprimer un document \n");
-            printf("3. Quitter \n");
+            printf("3. Quitter \n\n");
             printf("Tapez 1, 2 ou 3 > ");
 
             scanf("%d", &choixMenu);
 
 
             if(choixMenu == 1 || choixMenu == 2){
-                printf("\nChoisissez la zone > ");
+                printf("\nChoisissez lequel (0 à %d) > ", NB_ZONES_MAX-1);
 
                 scanf("%d", &numZone);
                 if(numZone >= 0 && numZone < NB_ZONES_MAX){
@@ -145,7 +180,9 @@ int menu(int Socket, principale p){
 
         // Le client reçoit du serveur si la zone est accessible ou non
         int statutZone;
+        //pthread_mutex_lock(&verrou);
         recv(Socket,&statutZone,sizeof(statutZone),0);
+        //pthread_mutex_unlock(&verrou);
         //printf("debug \n");
         //printf("statut zone: %d\n", statutZone);
 
@@ -169,45 +206,57 @@ int menu(int Socket, principale p){
 
 }
 
-/*unsigned char * deserialize_int(unsigned char *buffer, int *value){}*/
-
 void* afficheMaj(void* args){
    
-    maj_struct_client* temp = args;
+    //maj_struct_client* temp = args;
      /* printf("/////////////////MAJ RECU//////////////////// \n");
      pthread_mutex_lock(&verrou);
 	 pthread_cond_wait (&structureRecu, &verrou);
      pthread_mutex_unlock(&verrou);*/
-    while(1){
+    //while(1){
        
-        int maj;
-        recv(temp->sockfd,&maj,sizeof(maj),0);
-        if (maj== 500)
-        {
-        printf("Maj bien reçue : %d \n",maj);
+      /*  maj m;
+        pthread_mutex_lock(&verrou);
+        recvPourTCP((char *)&m, temp->sockfd);
+        //recv(temp->sockfd,&maj,sizeof(maj),0);
+        pthread_mutex_unlock(&verrou);
+        printf("(debug)Entier reçu %d \n",m.msg);
+        if (m.msg== 500){
+            zone reception;
+            recvPourTCP((char*) &reception, temp->sockfd);
+            printf("[!] Un client vient de modifier la zone n°%d, voici les nouvelles informations : \n", reception.numeroZone);
+            printf("Debug !!!!!!!!!\n");
+            afficheZone(reception);
 
         } 
-        zone reception;
-        recvPourTCP((char*) &reception, temp->sockfd);
-        printf("Debug !!!!!!!!!\n");
-        afficheZone(reception);
+
         
-        /*zone reception;
+        zone reception;
         recvPourTCP((char *) &reception, temp->sockfd);
         temp->memoire.zones[reception.numeroZone] = reception;
         printf("/////////UNE MAJ VIENT D ETRE REALISEE SUR CETTE ZONE %d/////////\n", reception.numeroZone);*/
        
         //afficheZone(reception);
         
-    }
+    //}*/
     
     pthread_exit(NULL);
 }
 
 int main(int argc, char** argv){
+    if(argc != 3) {
+        printf("Utilisation : ./client <IP> <Port>\t\n");
+        printf("<IP> : L'adresse IP du serveur\n");
+        printf("<Port> : Le numéro de port\n");
+
+        exit(1);
+    }
     int sockfd;//to create socket
 
     struct sockaddr_in serverAddress;//client will connect on this
+
+    char* SERVER_IP = argv[1]; 
+    int PORT = atoi(argv[2]);
 
     //create socket
     sockfd=socket(AF_INET,SOCK_STREAM,0);
@@ -221,29 +270,28 @@ int main(int argc, char** argv){
     connect(sockfd,(struct sockaddr *)&serverAddress,sizeof(serverAddress));
     //send to sever and receive from server
 
-    principale p = receptionEspace(sockfd);
-    pthread_cond_broadcast(&structureRecu);
-    pthread_t thread1;
+    //pthread_cond_broadcast(&structureRecu);
+    //pthread_t thread1;
+
     maj_struct_client *args = malloc(sizeof *args);
     args->sockfd = sockfd;
-    args->memoire=p;
-    if(pthread_create(&thread1, NULL, afficheMaj, args) == -1) {
+    //args->memoire=p;
+    /*if(pthread_create(&thread1, NULL, afficheMaj, args) == -1) {
         perror("pthread_create");
         return EXIT_FAILURE;
-    }
+    }*/
+
+    //pthread_mutex_lock(&verrou);
+    //principale p = receptionEspace(sockfd);
+    //pthread_mutex_unlock(&verrou);
 
     int souhaiteQuitter = 0;
     while(!souhaiteQuitter){
-        afficheZones(p);
+        principale p = receptionEspace(sockfd);
         souhaiteQuitter = menu(sockfd, p);
-        
-        //Affichage des mises à jour s'il y'en a :      
-        
-
-        //p = receptionEspace(sockfd);
-        
+        //Affichage des mises à jour s'il y'en a :   
     }
-    pthread_join(thread1, NULL);
+    //pthread_join(thread1, NULL);
     return 0;
 
 }

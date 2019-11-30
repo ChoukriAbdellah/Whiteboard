@@ -1,7 +1,5 @@
 #include "TCP.h"
 
-#include<sys/socket.h>//socket
-
 int sendPourTCP(int s, char* msg, int Socket){
     // Printf en commentaires pour debug
 

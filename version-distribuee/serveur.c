@@ -17,21 +17,14 @@
 #include <sys/select.h>
 
 #include "structures.h"
+#include "affichage.h"
 #include "TCP.h"
 
-void afficheZone(zone z){
-    printf("---------- Zone n°%d ---------\n", z.numeroZone);
-    printf("\t Titre : %s \n \n",z.titre);
-    printf("%s \n \n", z.texte);
-            
-    printf("Auteur(s) : %s \n \n", z.createurs);
-}
+//pthread_cond_t *zoneModifiee = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+//for(int i=0; i<NB_ZONES_MAX; i++) zoneModifiee[i] = PTHREAD_COND_INITIALIZER;
+pthread_cond_t zoneModifiee = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t verrou = PTHREAD_MUTEX_INITIALIZER;
 
-void afficheZones(principale *p){
-    for(int i=0; i<NB_ZONES_MAX; i++){
-        afficheZone(p->zones[i]);
-    }
-}
 
 void envoiEspace(principale* p, int Socket, struct in_addr IP){
     printf("Serveur: Envoi en cours...\n");
@@ -104,9 +97,9 @@ principale * initZones(char* fichier_zones, int entier_cle) {
     for(int i=0; i<NB_ZONES_MAX; i++){
         zone z;
         z.numeroZone = i;
-        strcpy(z.createurs , "créateur");
+        strcpy(z.lastModif , "Personne");
         strcpy(z.texte,"Ceci est un texte");
-        strcpy(z.titre,"un titre");
+        strcpy(z.titre,"Document vide");
         p.zones[i] = z;
     }
 
@@ -118,7 +111,7 @@ principale * initZones(char* fichier_zones, int entier_cle) {
         exit(EXIT_FAILURE);
     } 
 
-    printf("Serveur: Segment de mémoire partagée attaché.\n");
+    printf("Serveur: Segment de mémoire partagée crée et attaché.\n");
 
     principale * shmaddr;
     if ((shmaddr = (principale *) shmat(idS, NULL, 0)) == (void *) -1){
@@ -127,113 +120,13 @@ principale * initZones(char* fichier_zones, int entier_cle) {
     }
     
     *shmaddr = p;
+
+    printf("Serveur: Initialisation de l'espace partagé terminé.\n");
   
-
-   /* for(int i=0; i<NB_ZONES_MAX; i++){
-    printf("Segment partagé zone %d : %d\n", i, shmaddr->zones[i].numeroZone);
-    printf("createur : \t%s\n", shmaddr->zones[i].createur);
-    }
-    //printf("Serveur: Segment prêt avec %d zones.\n" , *shmaddr);
-
-    //Detachement du segment de memoire partagee */
-    afficheZones(shmaddr);
+    //afficheZonesLeger(*shmaddr);
 
     return shmaddr;
 }
-
-unsigned char * serialize_int(unsigned char *buffer, int value){
-  /* Write big-endian int value into buffer; assumes 32-bit int and 8-bit char. */
-  buffer[0] = value >> 24;
-  buffer[1] = value >> 16;
-  buffer[2] = value >> 8;
-  buffer[3] = value;
-  return buffer + 4;
-}
-
-unsigned char * serialize_char(unsigned char *buffer, char value){
-  buffer[0] = value;
-  return buffer + 1;
-}
-
-unsigned char * serialize_temp(unsigned char *buffer,  zone *value){
-  buffer = serialize_int(buffer, value->numeroZone);
-  for(int i=0; i<strlen(value->titre); i++)
-     buffer = serialize_char(buffer, value->titre[i]);
-
-  for(int i=0; i<strlen(value->texte); i++)
-     buffer = serialize_char(buffer, value->texte[i]);
-
-  for(int i=0; i<strlen(value->createurs); i++)
-     buffer = serialize_char(buffer, value->createurs[i]);
-  return buffer;
-}
-
-/*void* sendMajForAllClient(maj_struct_serveur* tem){
-    printf("je rentre dans senForAll\n");
-    socklen_t sin_size = sizeof(struct sockaddr_in);
-    int sockfd2;          // descripteurs de socket
-             // tableau qui contiendra tous les descripteurs de sockets,
-                                  // avec une taille egale a la taille max de l'ensemble d'une structure fd_set
-               // nombre de descripteurs dans le tableau precedent
-    char buf[1024];               // espace necessaire pour stocker le message recu
-
-    memset(buf,'\0',1024);        // initialisation du buffer qui sera utilisé
-  
-    t[0]=tem->sockfd; // on ajoute deja la socket d'ecoute au tableau de descripteurs
-    taille++;    // et donc on augmente "taille"
-
-    while(1){
-        int i;
-        for(i=1;i<taille;i++){ // on parcourt tous les autres descripteurs du tableau     
-                int k;
-                //char buf[100];
-                strcpy(buf,"-------UNE MAJ VIENT D'ETRE  REALISEE---------");
-                for(k=1;k<taille;k++){ // puis on l'envoie a tous les clients...
-                    
-                        if(send(t[k],buf,strlen(buf),0) == -1){
-                            perror("Erreur lors de l'appel a send -> ");
-                            exit(1);
-                        }
-                    
-                }
-            
-        }
-    }
-}*/
-
-/*void* sendMajForAllClient(void* arg){
-    maj_struct_serveur* tem= arg;
-    printf("je rentre dans senForAll\n");
-    socklen_t sin_size = sizeof(struct sockaddr_in);
-    int sockfd2;          // descripteurs de socket
-    int t[FD_SETSIZE];            // tableau qui contiendra tous les descripteurs de sockets,
-                                  // avec une taille egale a la taille max de l'ensemble d'une structure fd_set
-    int taille=0;                 // nombre de descripteurs dans le tableau precedent
-    char buf[1024];               // espace necessaire pour stocker le message recu
-
-    memset(buf,'\0',1024);        // initialisation du buffer qui sera utilisé
-  
-    t[0]=tem->sockfd; // on ajoute deja la socket d'ecoute au tableau de descripteurs
-    taille++;    // et donc on augmente "taille"
-
-    while(1){
-        int i;
-        for(i=1;i<taille;i++){ // on parcourt tous les autres descripteurs du tableau     
-                int k;
-                //char buf[100];
-                strcpy(buf,"-------UNE MAJ VIENT D'ETRE  REALISEE---------");
-                for(k=1;k<taille;k++){ // puis on l'envoie a tous les clients...
-                    
-                        if(send(t[k],buf,strlen(buf),0) == -1){
-                            perror("Erreur lors de l'appel a send -> ");
-                            exit(1);
-                        }
-                    
-                }
-            
-        }
-    }
-}*/
 
 void* MAJ(void* arg){
     maj_struct_serveur *temp =  arg; 
@@ -266,14 +159,28 @@ void* MAJ(void* arg){
 	// opv.sem_flg = 0;
     
 
-    //     opp.sem_num = temp->index;
+    //  opp.sem_num = temp->index;
 	// 	opv.sem_num = temp->index;
-        int attente;
-        while (1)
-        {
-            if((attente= semctl(idSem, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
+            int attente;
+            if((attente = semctl(idSem, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
                 perror("problème init");//suite
             }
+
+            pthread_mutex_lock(&verrou);
+            while(attente == 1){
+                //printf("thread n°%d : en attente qu'un client accede à une zone\n", temp->index);
+                pthread_cond_wait(&zoneModifiee, &verrou);
+                if((attente = semctl(idSem, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
+                    perror("problème init");//suite
+                }
+            }
+            pthread_mutex_unlock(&verrou);
+
+            printf("thread n°%d : peut agir (fin modif)\n", temp->index);
+
+        /*while (1)
+        {
+
 
             if (attente == 0){
                 while (semctl(idSem, temp->index, GETVAL) == 0){
@@ -282,9 +189,12 @@ void* MAJ(void* arg){
                 }
                  // Le client a fini sa modif
                 printf("Un client a modif une zone, go en informer tout le monde\n");
-                int msg = 500;
-                int n=send(temp->sockfd,&msg,sizeof(msg),0);
-                printf("j'ai envoyé %d octets\n", n);
+                //int msg = 500;
+                //int n=send(temp->sockfd,&msg,sizeof(msg),0);
+                maj m;
+                m.msg = 500;
+                sendPourTCP(sizeof(m), (char *) &m, temp->sockfd);
+                //printf("j'ai envoyé %d octets\n", n);
                 // Le client a fini sa modif
                 //printf("Un client a modif une zone, go en informer tout le monde\n");
                 zone zoneModifie = temp->memoire->zones[temp->index];
@@ -303,18 +213,20 @@ void* MAJ(void* arg){
 
                 //afficheZone(temp->p,temp->index);
             }
-        }
+        }*/
 
+        pthread_exit(NULL);
 }
 
 int main(int argc, char** argv){
-    if(argc != 1) {
-        printf("Utilisation : ./serveur <Port>\t<Adresse>\t \n");
-        printf("<Port>: un numèro de port accessible\n");
-        printf("<Adresse>: une adresse de type IPV4\n");
+    if(argc != 2) {
+        printf("Utilisation : ./serveur <Port>\t\n");
+        printf("<Port> : un numero de port accessible\n");
 
         exit(1);
     }
+
+    int PORT = atoi(argv[1]);
 
     int idSem = initSemaphores(FICHIER_SEMAPHORES, CLE_SEMAPHORES);
     principale* p = initZones(FICHIER_PARTAGE, CLE_PARTAGE);
@@ -356,8 +268,11 @@ int main(int argc, char** argv){
         //Un processus fils est crée pour chaque nouveau client
         pid=fork();
         if(pid==0){
-            pthread_t arrayT[NB_ZONES_MAX];
             // On est dans le processus fils
+
+            // Pour chaque fils, on crée autant de threads qu'il y'a de zones
+
+            pthread_t arrayT[NB_ZONES_MAX];
             for(int i=0; i<NB_ZONES_MAX; i++){
                     maj_struct_serveur* var = malloc(sizeof *var);
                     var->sockfd= newsockfd;
@@ -371,10 +286,6 @@ int main(int argc, char** argv){
             }
 
             while(1){
-                
-                // On met en place le thread d'envoi propre au client associé à ce processus fils
-
-                
 
                 envoiEspace(p, newsockfd, clientAddress.sin_addr);
                     
@@ -424,9 +335,11 @@ int main(int argc, char** argv){
 
                         // Le serveur attend en retour la nouvelle zone après que le client ait fini
                         zone new;
-                        int err;
-                        err = recvPourTCP((char *) &new, newsockfd);
-                        printf("err reception new zone : %d \n", err);
+
+                        //int err;
+                        /*err = */recvPourTCP((char *) &new, newsockfd);
+                        pthread_cond_broadcast(&zoneModifiee);
+                        //printf("err reception new zone : %d \n", err);
 
                         // Le serveur valide la modification en écrasant la zone dans le segment de mémoire
                         p->zones[numZone] = new;
@@ -434,11 +347,10 @@ int main(int argc, char** argv){
 
                         // Le serveur redonne l'accès à la zone
                         semop(idSem,&opv,1);
+                        
 
-                        printf("test affichage p chez serv après modif\n");
-                        afficheZones(p);
-
-
+                        //printf("test affichage p chez serv après modif\n");
+                        //afficheZones(p);
 
                         // Le serveur renvoie le segment entier au client
                         envoiEspace(p, newsockfd, clientAddress.sin_addr);
@@ -459,6 +371,7 @@ int main(int argc, char** argv){
                 exit(0);
         }
         else{
+            printf("Serveur : Le client (IP: %s) s'est déconnecté.\n", inet_ntoa(clientAddress.sin_addr));
             close(newsockfd);
             // Le parent ferme la socket
             }

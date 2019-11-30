@@ -13,5 +13,6 @@
 /version-distribuee/segment-memoire
 /version-distribuee/semaphores
 /version-distribuee/TCP.o
+/version-distribuee/affichage.o
 /version-distribuee/serveur.o
 /version-distribuee/client.o
