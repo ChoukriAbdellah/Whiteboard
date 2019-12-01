@@ -11,7 +11,8 @@
 /version-distribuee/client
 /version-distribuee/serveur
 /version-distribuee/segment-memoire
-/version-distribuee/semaphores
+/version-distribuee/semaphores-zones
+/version-distribuee/semaphores-maj
 /version-distribuee/TCP.o
 /version-distribuee/affichage.o
 /version-distribuee/serveur.o

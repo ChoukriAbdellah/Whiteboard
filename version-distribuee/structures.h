@@ -9,11 +9,8 @@
 #define NB_ZONES_MAX 10
 
 // Le fichier utilisé pour les sémaphores
-#define FICHIER_SEMAPHORES "./semaphores"
-
-struct sembuf opp;
-struct sembuf opv;
-struct sembuf opz;
+#define FICHIER_SEMAPHORES "./semaphores-zones"
+#define FICHIER_SEMAPHORES2 "./semaphores-maj"
 
 // Le fichier utilisé pour le segment de mémoire partagée
 #define FICHIER_PARTAGE "./segment-memoire"
@@ -23,6 +20,11 @@ struct sembuf opz;
 
 // L'entier commun pour calculer la clé utilisée pour le tableau de sémaphores
 #define CLE_SEMAPHORES 35
+#define CLE_SEMAPHORES2 40
+
+/*struct sembuf opp;
+struct sembuf opv;
+struct sembuf opz;*/
 
 
 /* Structures à partager dans le segment */
@@ -74,13 +76,6 @@ union semun {
     unsigned short  *array;  /* cmd = GETALL ou SETALL */
     struct seminfo *__buf ;/* cmd = IPC_INFO (sous Linux) */
 };
-
-// Operations
-/*struct sembuf op[] = {
-    { 0, -1, SEM_UNDO }, // P
-    { 0, 1, SEM_UNDO }, // V
-    {0, 0, SEM_UNDO} // Z
-};  */
 
  
 /* Ou sinon : */
