@@ -5,7 +5,7 @@ int sendPourTCP(int s, char* msg, int Socket){
 
     // On fait un envoi d'abord pour indiquer la taille à envoyer : 
 
-    send(Socket,&s,sizeof(s),0);
+    //send(Socket,&s,sizeof(s),0);
 
     int i=0;
     int totalSend = 0;
@@ -38,7 +38,8 @@ int recvPourTCP(char* msg, int Socket){
     int s;
     int i=0;
     // On fait une réception d'abord pour récuperer la taille à recevoir : 
-    recv(Socket,&s,sizeof(s),0);
+    //recv(Socket,&s,sizeof(s),0);
+    s = sizeof(zone);
     //printf("Client: On veut recevoir %d octets \n", s);
     int totalRecv = 0;
 
@@ -63,13 +64,12 @@ int recvPourTCP(char* msg, int Socket){
     return 1;
 }
 
-int recvNonBloquant(char* msg, int Socket){
+int recvNonBloquant(int s, char* msg, int Socket){
     // Printf en commentaires pour debug
 
-    int s;
     int i=0;
     // On fait une réception d'abord pour récuperer la taille à recevoir : 
-    recv(Socket,&s,sizeof(s),0);
+    //recv(Socket,&s,sizeof(s),0);
     int totalRecv = 0;
 
     if(s > 0){

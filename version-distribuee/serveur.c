@@ -151,17 +151,7 @@ void* MAJ(void* arg){
             perror("Erreur semget ");
         exit(EXIT_FAILURE);
     } 
-
-    //printf("Processus n°%d : La sémaphore a bien été créée et attachée.\n", getpid());
-	// opp.sem_op = -1;
-	// opp.sem_flg = 0;
-	
-	// opv.sem_op = 1;
-	// opv.sem_flg = 0;
-    
-
-    //  opp.sem_num = temp->index;
-	// 	opv.sem_num = temp->index;
+    while(1){
             int attente;
             if((attente = semctl(idSem, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
                 perror("problème init");//suite
@@ -196,6 +186,8 @@ void* MAJ(void* arg){
             // Là le thread doit envoyer la mise à jour
             zone z;
             z = temp->p->zones[temp->index];
+            printf("test affichage zone avant envoi\n");
+            afficheZone(z);
             //printf("envoi de la mise à jour : en cours\n");
             int erreur = sendPourTCP(sizeof(z), (char *)&z, temp->sockfd);
             switch(erreur){
@@ -209,6 +201,7 @@ void* MAJ(void* arg){
                     printf("Serveur: Envoi de la mise à jour du document n°%d au client terminé.\n",temp->index);
                     break;
             }
+    }
 
         pthread_exit(NULL);
 }
@@ -304,10 +297,13 @@ int main(int argc, char** argv){
                     opp.sem_num = numZone;
                     opv.sem_num = numZone;
 
+                    printf("Serveur: Mon client cherche à agir sur la zone n°%d\n", numZone);
+
                     int attente;
                     //printf("Avant attente\n");
                     if((attente= semctl(idSem, numZone, GETVAL)) == -1){ // On récupères le nombre de processus restants
-                        perror("problème init");//suite
+                        perror("Problème semaphore");//suite
+                        exit(EXIT_FAILURE);
                     }
 
                     if (attente == 0) {

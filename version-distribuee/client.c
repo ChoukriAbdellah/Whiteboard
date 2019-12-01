@@ -25,11 +25,26 @@ pthread_cond_t waitThread= PTHREAD_COND_INITIALIZER;
 
 int activerMAJ=0;
 
-void desactiverThreadMAJ(){
+void desactiverThreadMAJ(int Socket){
     //pthread_mutex_lock(&verrou);
     activerMAJ = 0;
     printf("je viens de désactiver le thread\n");
     //pthread_mutex_unlock(&verrou);
+
+    int opts;
+
+    opts = fcntl(Socket,F_GETFL);
+    if (opts < 0) {
+        perror("fcntl(F_GETFL)");
+        exit(EXIT_FAILURE);
+    }
+    opts = opts & (~O_NONBLOCK);
+
+    if (fcntl(Socket,F_SETFL,opts) < 0) {
+        perror("fcntl(F_SETFL)");
+        exit(EXIT_FAILURE);
+    }
+    return;
 }
 
 void activerThreadMAJ(int Socket){
@@ -58,25 +73,25 @@ void activerThreadMAJ(int Socket){
 
 }
 
-principale receptionEspace(int Socket){
+principale* receptionEspace(int Socket){
 
    printf("\nClient: Structure en cours de reception...\n");
-    principale p;    
+    principale *p = malloc(sizeof(principale));
 
     for(int i=0; i<NB_ZONES_MAX; i++){
         zone reception;
         recvPourTCP((char *) &reception, Socket);
-        p.zones[i] = reception;
+        p->zones[i] = reception;
     }
     printf("Client: Tout a bien été reçu.\n");
 
     return p;
 }
 
-void editZone(principale p, int numZone, int Socket){
+void editZone(principale *p, int numZone, int Socket){
     char newData[TAILLE_MAX];
     printf("Vous vous apprêtez à modifier le document n°%d.\n\n", numZone);
-    afficheZone(p.zones[numZone]);
+    afficheZone(p->zones[numZone]);
 
     int veutStopModif=0;
     while(!veutStopModif){
@@ -124,14 +139,14 @@ void editZone(principale p, int numZone, int Socket){
         
             if(choix == 1){
                 // On remplace le titre directement
-                strcpy(p.zones[numZone].titre, newData);
-                strcpy(p.zones[numZone].lastModif,hostname);
+                strcpy(p->zones[numZone].titre, newData);
+                strcpy(p->zones[numZone].lastModif,hostname);
             }
             else if(choix == 2){
                 // Ici on ajoute la modification à la suite du texte déjà présent
-                strcat(p.zones[numZone].texte, " ");
-                strcat(p.zones[numZone].texte, newData);
-                strcpy(p.zones[numZone].lastModif, hostname);
+                strcat(p->zones[numZone].texte, " ");
+                strcat(p->zones[numZone].texte, newData);
+                strcpy(p->zones[numZone].lastModif, hostname);
             }
         }
 
@@ -141,7 +156,7 @@ void editZone(principale p, int numZone, int Socket){
 
     //printf("affichage zone modifiée chez client avant de la renvoyer \n");
     zone new;
-    new = p.zones[numZone];
+    new = p->zones[numZone];
     //afficheZone(new);
 
     sendPourTCP(sizeof(new), (char *) &new, Socket);
@@ -149,7 +164,7 @@ void editZone(principale p, int numZone, int Socket){
     printf("Vos modifications ont bien été enregistrés!\n");
 }
 
-void removeZone(principale p, int numZone, int Socket){
+void removeZone(principale *p, int numZone, int Socket){
     char newData[TAILLE_MAX];
     int n;
     printf("\nVous vous apprêtez à supprimer le document n°%d.\n\n", numZone);
@@ -158,10 +173,10 @@ void removeZone(principale p, int numZone, int Socket){
     n=strcmp(newData,"oui");
 
     if(n == 0){
-       strcpy(p.zones[numZone].texte, "");
+       strcpy(p->zones[numZone].texte, "");
         // Le client envoie au serveur la zone après l'avoir modifiée
         zone new;
-        new = p.zones[numZone];
+        new = p->zones[numZone];
 
         sendPourTCP(sizeof(new), (char *) &new, Socket);
 
@@ -173,7 +188,7 @@ void removeZone(principale p, int numZone, int Socket){
 
 }
 
-int menu(int Socket, principale p){
+int menu(int Socket, principale *p){
     int souhaiteQuitter=0;
     int numZone, choixMenu, choixCorrect=0;
 
@@ -213,7 +228,7 @@ int menu(int Socket, principale p){
     }
 
     if(!souhaiteQuitter){
-        desactiverThreadMAJ();
+        desactiverThreadMAJ(Socket);
 
         // Le client informe au serveur quel zone il souhaite modifier
         send(Socket,&numZone,sizeof(numZone),0);
@@ -273,7 +288,6 @@ void* afficheMaj(void* args){
             /*if((recv(temp->sockfd, &m, sizeof(m), 0)) < 0){
                 printf("recv error: %s\n", strerror(errno));
             }*/
-            zone reception;
             //int erreur = recvPourTCP((char *) &reception, temp->sockfd);
             /*fd_set rfds;
             struct timeval tv;
@@ -298,8 +312,9 @@ void* afficheMaj(void* args){
             else
                 printf("Aucune données durant les 5 secondes\n");
                 */
-            int erreur = recvNonBloquant((char *) &reception, temp->sockfd);//recvNonBloquant();
-            switch(erreur){
+            zone reception;
+            int erreur = recvNonBloquant(sizeof(reception), (char *) &reception, temp->sockfd);//recvNonBloquant();
+            switch(erreur){  
                 case 0:
                     //fprintf(stderr, "Serveur: Erreur reçue du client (IP: , zone n°%d) : send = 0\n", reception.numeroZone);
                     break;
@@ -312,7 +327,9 @@ void* afficheMaj(void* args){
             }  
             if(erreur > 0){
                 printf("taille reception %ld\n", sizeof(reception));
-                temp->p.zones[reception.numeroZone] = reception;
+                printf("numZone %d\n", reception.numeroZone);
+
+                temp->p->zones[reception.numeroZone] = reception;
                 printf("UNE MAJ VIENT D ETRE REALISEE SUR CETTE ZONE %d\n", reception.numeroZone);
                 afficheZone(reception);
             }
@@ -355,8 +372,9 @@ int main(int argc, char** argv){
     //send to sever and receive from server
 
     pthread_t threadMAJ;
-    principale p = receptionEspace(sockfd);
-    afficheZonesLeger(p);
+    principale *p = malloc(sizeof(principale));
+    p = receptionEspace(sockfd);
+    afficheZonesLeger(*p);
 
     maj_struct_client *args = malloc(sizeof *args);
     args->sockfd = sockfd;
