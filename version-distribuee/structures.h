@@ -13,6 +13,7 @@
 
 struct sembuf opp;
 struct sembuf opv;
+struct sembuf opz;
 
 // Le fichier utilisé pour le segment de mémoire partagée
 #define FICHIER_PARTAGE "./segment-memoire"
@@ -47,6 +48,7 @@ typedef struct{
     int sockfd;
     principale* p;
     int index ;
+    int idSemMAJ;
 } maj_struct_serveur;
 
 typedef struct {

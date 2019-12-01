@@ -26,10 +26,8 @@ pthread_cond_t waitThread= PTHREAD_COND_INITIALIZER;
 int activerMAJ=0;
 
 void desactiverThreadMAJ(int Socket){
-    //pthread_mutex_lock(&verrou);
     activerMAJ = 0;
-    printf("je viens de désactiver le thread\n");
-    //pthread_mutex_unlock(&verrou);
+    //printf("je viens de désactiver le thread\n");
 
     int opts;
 
@@ -48,10 +46,8 @@ void desactiverThreadMAJ(int Socket){
 }
 
 void activerThreadMAJ(int Socket){
-    //pthread_mutex_lock(&verrou);
     activerMAJ = 1;
-    printf("je viens de réactiver le thread\n");
-    //pthread_mutex_unlock(&verrou);
+    //printf("je viens de réactiver le thread\n");
     /*if(fcntl(Socket, F_SETFL, fcntl(Socket, F_GETFL) | O_NONBLOCK) < 0) {
         printf("erreur lors du passage en mode non bloquant");
     }*/
@@ -274,7 +270,7 @@ void* afficheMaj(void* args){
     while(1){
         pthread_mutex_lock(&verrou);
         while(activerMAJ != 1){
-            printf("thread mis en attente le temps de recv\n");
+            //printf("thread mis en attente le temps de recv\n");
             pthread_cond_wait(&waitThread, &verrou);
         }
         pthread_mutex_unlock(&verrou);
@@ -288,30 +284,7 @@ void* afficheMaj(void* args){
             /*if((recv(temp->sockfd, &m, sizeof(m), 0)) < 0){
                 printf("recv error: %s\n", strerror(errno));
             }*/
-            //int erreur = recvPourTCP((char *) &reception, temp->sockfd);
-            /*fd_set rfds;
-            struct timeval tv;
-            int retval;
 
-            // Surveiller stdin (fd 0) en attente d'entrées 
-            FD_ZERO(&rfds);
-            FD_SET(temp->sockfd, &rfds);
-
-            // Pendant 5 secondes maxi 
-            tv.tv_sec = 5;
-            tv.tv_usec = 0;
-
-            retval = select(1, &rfds, NULL, NULL, &tv);
-            // Considérer tv comme indéfini maintenant ! 
-
-            if (retval == -1)
-                perror("select()");
-            else if (retval)
-                printf("Des données sont disponibles maintenant\n");
-                // FD_ISSET(0, &rfds) est vrai 
-            else
-                printf("Aucune données durant les 5 secondes\n");
-                */
             zone reception;
             int erreur = recvNonBloquant(sizeof(reception), (char *) &reception, temp->sockfd);//recvNonBloquant();
             switch(erreur){  
@@ -328,8 +301,9 @@ void* afficheMaj(void* args){
             if(erreur > 0){
                 printf("taille reception %ld\n", sizeof(reception));
                 printf("numZone %d\n", reception.numeroZone);
-
+                pthread_mutex_lock(&verrou);
                 temp->p->zones[reception.numeroZone] = reception;
+                pthread_mutex_unlock(&verrou);
                 printf("UNE MAJ VIENT D ETRE REALISEE SUR CETTE ZONE %d\n", reception.numeroZone);
                 afficheZone(reception);
             }
@@ -352,15 +326,19 @@ int main(int argc, char** argv){
 
         exit(1);
     }
-    int sockfd;//to create socket
+    int sockfd;
 
-    struct sockaddr_in serverAddress;//client will connect on this
+    struct sockaddr_in serverAddress;//adresse distante
 
-    char* SERVER_IP = argv[1]; 
+    char* SERVER_IP = argv[1];
     int PORT = atoi(argv[2]);
 
-    //create socket
+    //Création de la socket
     sockfd=socket(AF_INET,SOCK_STREAM,0);
+    /*if ((sockfd = socket(PF_INET, SOCK_STREAM, 0)) == -1){
+		perror("socket");
+		exit(EXIT_FAILURE);
+	}*/
     //initialize the socket addresses
     memset(&serverAddress,0,sizeof(serverAddress));
     serverAddress.sin_family=AF_INET;

@@ -55,13 +55,13 @@ void envoiEspace(principale* p, int Socket, struct in_addr IP){
     printf("Serveur: Le client (IP: %s) a bien reçue toutes les données.\n", inet_ntoa(IP));
 }
 
-int initSemaphores(char* fichier_semaphores, int  cle_semaphore) {
+int initSemaphores() {
   
-  //Création du fichier s'il n'existe pas
-  int fd = open(fichier_semaphores, O_CREAT|O_WRONLY, 0644);
-  close(fd);
+    //Création du fichier s'il n'existe pas
+    int fd = open(FICHIER_SEMAPHORES, O_CREAT|O_WRONLY, 0644);
+    close(fd);
   
-  key_t cle = ftok(fichier_semaphores, cle_semaphore);
+    key_t cle = ftok(FICHIER_SEMAPHORES, CLE_SEMAPHORES);
 
     // Création de NB_ZONE_MAX sémaphore associée a la clé
     int idSem = semget(cle, NB_ZONES_MAX, IPC_CREAT|0666);
@@ -72,7 +72,7 @@ int initSemaphores(char* fichier_semaphores, int  cle_semaphore) {
 
     for(int i=0; i<NB_ZONES_MAX; i++){
         if(semctl(idSem, i, SETVAL, egCtrl) == -1) {
-            perror("Probleme semctl fonction initStructure");
+            perror("Probleme semctl fonction initSemaphores()");
         }
     }  
 
@@ -130,7 +130,9 @@ principale * initZones(char* fichier_zones, int entier_cle) {
 }
 
 void* MAJ(void* arg){
+
     maj_struct_serveur *temp =  arg; 
+    //printf("thread n°%d crée chez fils\n", temp->index);
 
     int fd = open(FICHIER_SEMAPHORES, O_CREAT|O_WRONLY, 0644);
     close(fd);
@@ -145,14 +147,13 @@ void* MAJ(void* arg){
     int idSem=0;
 
     if ((idSem=semget(cleSem, 1, 0666)) < 0){
-        if(errno == EEXIST)
-             fprintf(stderr, "La sémaphore (id=%d) existe deja\n", idSem);
-        else
-            perror("Erreur semget ");
+        perror("Erreur semget ");
         exit(EXIT_FAILURE);
     } 
+
+
     while(1){
-            int attente;
+            /*int attente;
             if((attente = semctl(idSem, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
                 perror("problème init");//suite
             }
@@ -168,7 +169,7 @@ void* MAJ(void* arg){
 
             pthread_mutex_unlock(&verrou);
 
-            //printf("thread n°%d : en cours de modif\n", temp->index);
+            printf("thread n°%d : en cours de modif\n", temp->index);
 
             pthread_mutex_lock(&verrou);
             while(attente != 1){
@@ -179,9 +180,21 @@ void* MAJ(void* arg){
                 }
             }// la c le premier wait tant que personne a modif le truc (attente != 0)
 
-            pthread_mutex_unlock(&verrou);
+            pthread_mutex_unlock(&verrou);*/
 
-           // printf("thread n°%d : fin modif\n", temp->index);
+            opz.sem_op = 0;
+            opz.sem_flg = 0;
+            opz.sem_num = temp->index;
+            opz.sem_flg = SEM_UNDO;
+
+            printf("thread n°%d : en attente d'une fin de modif\n", temp->index);
+
+            if ((semop(temp->idSemMAJ,&opz,1)) < 0){ // Mise en attente
+                perror("Erreur semop ");
+                exit(EXIT_FAILURE);
+            }
+
+            printf("thread n°%d : fin modif\n", temp->index);
 
             // Là le thread doit envoyer la mise à jour
             zone z;
@@ -201,6 +214,9 @@ void* MAJ(void* arg){
                     printf("Serveur: Envoi de la mise à jour du document n°%d au client terminé.\n",temp->index);
                     break;
             }
+
+            // On rebloque le thread après qu'il ai envoyé sa mise à jour
+            semop(temp->idSemMAJ,&opp,1);
     }
 
         pthread_exit(NULL);
@@ -216,10 +232,17 @@ int main(int argc, char** argv){
 
     int PORT = atoi(argv[1]);
 
-    int idSem = initSemaphores(FICHIER_SEMAPHORES, CLE_SEMAPHORES);
+    // Tableau utilisé pour bloquer l'accès aux zones lorsqu'elles sont en cours de modification par un client :
+    int idSem = initSemaphores();
+
+    // Tableau utilisé pour faire un RDV entre tous les processus lors de l'envoi de la MAJ
+    // Chaque thread se met en attente sur une zone qui lui est associée et quand le client finit une modif sur la zone qu'il surveille...
+    /// ... alors il va se réveiller et envoyer à son client la mise à jour concernant la zone qu'il a surveillé
+    // Etant donné que chaque processus fils gère un client, donc chaque fils par le biais de ses threads va envoyer à son client la mise à jour, ce qui fait que tout le monde va la recevoir
+
+    int idSemMAJ = initSemaphores();
+
     principale* p = initZones(FICHIER_PARTAGE, CLE_PARTAGE);
-
-
 
     int sockfd;//to create socket
     int newsockfd;//to accept connection
@@ -266,6 +289,7 @@ int main(int argc, char** argv){
                     var->sockfd= newsockfd;
                     var->p = p;
                     var->index = i;
+                    var->idSemMAJ = idSemMAJ;
 
                     if(pthread_create(&arrayT[i], NULL, MAJ, var) == -1) {
                         perror("pthread_create");
@@ -275,26 +299,27 @@ int main(int argc, char** argv){
 
             while(1){
 
+                // Il envoie toujours au client le contenu de l'espace au début de sa connexion
                 envoiEspace(p, newsockfd, clientAddress.sin_addr);
                     
-                // Le serveur reçoit une zone où le client souhaite intervenir
-                int zoneOccupee;
-                zoneOccupee=1;
-                while(1){//Envoie tu msg d err ( zone occupée) en boucle tant que le client continu de dmd
-                                            // l accée a une zone occupée
+                while(1){
                     // Opération P
                     opp.sem_op = -1;
                     opp.sem_flg = 0;
+                    opp.sem_flg = SEM_UNDO;
         
                     // Opération V
                     opv.sem_op = 1;
                     opv.sem_flg = 0;
+                    opv.sem_flg = SEM_UNDO;
+
+                    // Le serveur reçoit une zone où le client souhaite intervenir
 
                     int numZone;
                     //recvPourTCP((char *)&numZone, sockfd);
                     recv(newsockfd,&numZone,sizeof(numZone),0);
 
-                    opp.sem_num = numZone;
+                    opp.sem_num = numZone;      
                     opv.sem_num = numZone;
 
                     printf("Serveur: Mon client cherche à agir sur la zone n°%d\n", numZone);
@@ -339,51 +364,33 @@ int main(int argc, char** argv){
                     }
 
                     else{
-                        zoneOccupee++;
                         semop(idSem,&opp,1);
-                        pthread_cond_broadcast(&zoneModifiee); // Il reveille le thread en cours de modif
+                        //pthread_cond_broadcast(&zoneModifiee); // Il reveille le thread en cours de modif
                         int peutModif = 1;
-                        // Avant d'envoyer, le serveur attend l'autorisation du client pour indiquer s'il est prêt à recevoir (après avoir bloqué le thread)
-                        //int autorisation;
-                        //recvPourTCP((char *)&numZone, sockfd);
-                        //printf("avant recv autorisation\n");
-                        //recv(newsockfd,&autorisation,sizeof(autorisation),0);
 
-                        //if(autorisation){
-                            //printf("autorisé à send\n");
                         send(newsockfd,&(peutModif),sizeof(peutModif),0);
-                        //}
-                        //else
-                        //{
-                          //  printf("bug autorisation");
-                        //}
-                        // Le serveur renvoie au client le statut de la zone en cours
-                        //sendPourTCP(sizeof(attente), (char *)&attente, sockfd);
+
 
                         // Le serveur attend en retour la nouvelle zone après que le client ait fini
-                        
-
+                    
                         //int err;
                         /*err = */
                         zone new;
                         recvPourTCP((char *) &new, newsockfd);
-                        pthread_cond_broadcast(&zoneModifiee2); // Il reveille le thread en fin de modif
+                        //pthread_cond_broadcast(&zoneModifiee2); 
+                        // Il reveille le thread en fin de modif : 
+                        semop(idSemMAJ,&opp,1);
+
                         //printf("err reception new zone : %d \n", err);
 
                         // Le serveur valide la modification en écrasant la zone dans le segment de mémoire
                         p->zones[numZone] = new;
         
-
                         // Le serveur redonne l'accès à la zone
                         semop(idSem,&opv,1);
                         
-
                         //printf("test affichage p chez serv après modif\n");
-                        //afficheZones(p);
-
-                        // Le serveur renvoie le segment entier au client
-                        //envoiEspace(p, newsockfd, clientAddress.sin_addr);
-                        
+                        //afficheZones(p);        
 
                     }
 
