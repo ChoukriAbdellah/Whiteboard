@@ -40,12 +40,12 @@ typedef struct {
 typedef struct{ 
     int sockfd;
     int numZone;
-    principale memoire;
+    principale p;
 } maj_struct_client;
 
 typedef struct{ 
     int sockfd;
-    principale* memoire;
+    principale* p;
     int index ;
 } maj_struct_serveur;
 
@@ -57,6 +57,11 @@ typedef struct{
     principale* p;
     int index ;
 } data;
+
+typedef struct {
+    principale p;
+    int Socket;
+} struct_menu;
 
 /* Structure utiles aux sémaphores */
 
