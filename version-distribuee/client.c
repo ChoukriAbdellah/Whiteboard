@@ -86,16 +86,18 @@ principale* receptionEspace(int Socket){
 void editZone(principale *p, int numZone, int Socket){
     char newData[TAILLE_MAX];
     printf("Vous vous apprêtez à modifier le document n°%d.\n\n", numZone);
-    afficheZone(p->zones[numZone]);
+    //afficheZone(p->zones[numZone]);
 
     int veutStopModif=0;
     while(!veutStopModif){
         int choixCorrect = 0;
         int choix;
         while (!choixCorrect){     
+                printf("Voici l'état actuel du document:\n");
+                afficheZone(p->zones[numZone]);
                 printf(BLU"\n1. Modifier le titre\n");
                 printf("2. Modifier le texte \n");
-                printf("3. Terminer la modification\n \n");
+                printf("3. Valider la modification\n \n");
                 printf(WHT"Tapez 1, 2 ou 3 > ");
 
                 scanf("%d", &choix);
@@ -184,13 +186,15 @@ void removeZone(principale *p, int numZone, int Socket){
 
 int menu(int Socket, principale *p){
     int souhaiteQuitter=0;
+    int souhaiteAfficher=0;
     int numZone, choixMenu, choixCorrect=0;
 
     while (!choixCorrect){           
         printf(RED"\n ---------- MENU ---------- \n\n");
         printf(BLU"1. Modifier un document\n");
         printf("2. Réinitialiser un document \n");
-        printf("3. Quitter \n\n");
+        printf("3. Afficher un récapitulatif des documents \n");
+        printf("4. Quitter \n\n");
         printf("Tapez 1, 2 ou 3 > ");
 
         //scanf("%d", &choixMenu);
@@ -217,6 +221,12 @@ int menu(int Socket, principale *p){
         else {
             if(choixMenu == 3){
                 choixCorrect++;
+                souhaiteAfficher++;
+                afficheZonesLeger(*p);
+            }
+
+            else if(choixMenu == 4){
+                choixCorrect++;
                 souhaiteQuitter++;
             }
 
@@ -225,7 +235,7 @@ int menu(int Socket, principale *p){
         }
     }
 
-    if(!souhaiteQuitter){
+    if(!souhaiteQuitter && !souhaiteAfficher){
         desactiverThreadMAJ(Socket);
 
         // Le client informe au serveur quel zone il souhaite modifier
@@ -249,8 +259,6 @@ int menu(int Socket, principale *p){
 
         activerThreadMAJ(Socket);
 
-
-
         if (peutModif==0){
             printf("Du serveur: La zone que vous avez choisie n'est pas disponible pour le moment.\n");
             printf("Vous pouvez en choisir une autre.\n");
@@ -263,12 +271,19 @@ int menu(int Socket, principale *p){
             if(choixMenu == 2)
                 removeZone(p, numZone, Socket);
             }
-        return 0;
-        }
-        else{
-            printf("Vous avez choisi d'arrêter la connexion au serveur. \n");
-            return 1;
-        }
+
+    return 0;
+    }
+
+    else if(souhaiteAfficher){
+        printf("test");
+        return menu(Socket, p);
+    }
+    
+    else{
+        printf("Vous avez choisi d'arrêter la connexion au serveur. \n");
+        return 1;
+    }
 
 }
 
@@ -325,8 +340,9 @@ void* afficheMaj(void* args){
                         perror("Error to pthread_mutex_unlock fonction");
                         exit(EXIT_FAILURE);
                     }
-                    printf(YEL"UNE MAJ VIENT D'ETRE REALISEE SUR CETTE ZONE %d\n", reception.numeroZone);
-                    afficheZone(reception);
+                    printf(YEL"Interruption : Une mise à jour vient d'être effectuée sur la zone n°%d par : %s\n", reception.numeroZone, reception.lastModif);
+                    //afficheZone(reception);
+                    printf("Vous pouvez reprendre votre activité.\n"WHT);
                     break;
             }  
         }

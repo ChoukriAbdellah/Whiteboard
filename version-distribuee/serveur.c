@@ -386,10 +386,12 @@ int main(int argc, char** argv){
 
                     if (attente == 0) {
                         int peutModif = 0;
-                        send(newsockfd,&(peutModif),sizeof(peutModif),0);                    
+                        send(newsockfd,&(peutModif),sizeof(peutModif),0);    
+                        printf("Serveur: Accès refusé à la zone n°%d car déjà en cours de modification.\n", numZone);                
                     }
 
                     else{
+                        printf("Serveur: Accès autorisé à la zone n°%d.\n", numZone);  
                         // On bloque l'accès à la zone
                         if ((semop(idSem,operationsZ,1)) < 0){ 
                             perror("Erreur semop ");
