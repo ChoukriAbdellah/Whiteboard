@@ -72,7 +72,7 @@ int initSemaphores() {
 
     //Création du fichier s'il n'existe pas
     int fd;
-    if((fd = open(FICHIER_SEMAPHORES2, O_CREAT|O_WRONLY, 0644)) == -1){
+    if((fd = open(FICHIER_SEMAPHORES, O_CREAT|O_WRONLY, 0644)) == -1){
         perror("Erreur open chez initSemaphores ");
         exit(EXIT_FAILURE);
     }
