@@ -15,6 +15,7 @@
 #include <netinet/in.h> 
 #include <pthread.h>
 #include <sys/select.h>
+#include <signal.h>
 
 #include "structures.h"
 #include "affichage.h" 
@@ -58,7 +59,7 @@ void envoiEspace(principale* p, int Socket, struct in_addr IP){
             //printf("Serveur: Envoi de la zone %d au client (IP: %s) terminé.\n",i, inet_ntoa(IP));
             nbZonesBienEnvoyees++;
             break;
-        }
+        } 
     }
 
     if(nbZonesBienEnvoyees == NB_ZONES_MAX)
@@ -215,14 +216,14 @@ void* MAJ(void* arg){
     
     while(1){
 
-            printf("thread n°%d : en attente d'une fin de modif\n", temp->index);
+            //printf("thread n°%d : en attente d'une fin de modif\n", temp->index);
 
             int attente;
             if((attente = semctl(temp->idSemMAJ, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
                 perror("problème init");//suite
             }
 
-            printf("attente avant mise en attente = %d\n", attente);
+            //printf("attente avant mise en attente = %d\n", attente);
 
 
             if ((semop(temp->idSemMAJ,opT+2,1)) < 0){ // Mise en attente
@@ -230,12 +231,12 @@ void* MAJ(void* arg){
                 exit(EXIT_FAILURE);
             }
 
-            printf("thread n°%d : fin modif\n", temp->index);
+            //printf("thread n°%d : fin modif\n", temp->index);
 
             // Là le thread doit envoyer la mise à jour
             zone z;
             z = temp->p->zones[temp->index];
-            printf("test affichage zone avant envoi\n");
+            //printf("test affichage zone avant envoi\n");
             afficheZone(z);
             //printf("envoi de la mise à jour : en cours\n");
             int erreur = sendPourTCP(sizeof(z), (char *)&z, temp->sockfd);
@@ -370,7 +371,12 @@ int main(int argc, char** argv){
                     // Le serveur reçoit une zone où le client souhaite intervenir
 
                     int numZone;
-                    recv(newsockfd,&numZone,sizeof(numZone),0);
+                    int nbRecu=0;
+                    nbRecu=recv(newsockfd,&numZone,sizeof(numZone),0);
+                    if(nbRecu == 0){
+                        printf("Serveur: Le client (IP: %s) s'est déconnecté.\n", inet_ntoa(clientAddress.sin_addr));
+                        kill(getpid(), SIGKILL);
+                    }
 
                     operationsZ[0].sem_num = numZone;      
                     operationsZ[1].sem_num = numZone;
@@ -404,11 +410,15 @@ int main(int argc, char** argv){
 
                         // Le serveur attend en retour la nouvelle zone après que le client ait fini
                     
-                        //int err;
-                        /*err = */
-                        zone new;
-                        recvPourTCP((char *) &new, newsockfd);
+                        int err;
                         
+                        zone new;
+                        err = recvPourTCP((char *) &new, newsockfd);
+                        if(err == 0){
+                            printf("Serveur: Le client (IP: %s) s'est déconnecté.\n", inet_ntoa(clientAddress.sin_addr));
+                            kill(getpid(), SIGKILL);
+                        }
+                            
                         // Il reveille le thread en fin de modif : 
 
                         if((attente = semctl(idSemMAJ, numZone, GETVAL)) == -1){ // On récupères le nombre de processus restants
@@ -444,8 +454,6 @@ int main(int argc, char** argv){
 
                         }
                         
-                      
-            
                         //printf("test affichage p chez serv après modif\n");
                         //afficheZones(p);        
 

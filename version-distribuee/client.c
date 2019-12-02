@@ -71,11 +71,10 @@ principale* receptionEspace(int Socket){
     for(int i=0; i<NB_ZONES_MAX; i++){
         zone reception;
         erreurRecvPourTcp= recvPourTCP((char *) &reception, Socket);
-        if (erreurRecvPourTcp == -1)
-        {
+        if (erreurRecvPourTcp == -1){
             perror("Error to sendPourTCP fonction");
             exit(EXIT_FAILURE);
-        }
+        } 
         p->zones[i] = reception;
     }
     printf("Client: Tout a bien été reçu.\n");
@@ -276,7 +275,7 @@ int menu(int Socket, principale *p){
     }
 
     else if(souhaiteAfficher){
-        printf("test");
+        //printf("test");
         return menu(Socket, p);
     }
     
@@ -409,12 +408,16 @@ int main(int argc, char** argv){
     while(!souhaiteQuitter){
         souhaiteQuitter = menu(sockfd, p);
     }
-    er=pthread_join(threadMAJ, NULL);
+    desactiverThreadMAJ(sockfd);
+
+    // On join pas sur le thread de réception car il tourne en boucle (il se finit jamais)
+
+    /*er=pthread_join(threadMAJ, NULL);
     if( er != 0 )
     {
         printf( "pthread_join error.\n" );
         exit( 1 );
-    }
+    }*/
     return 0;
 
 }

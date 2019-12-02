@@ -6,7 +6,7 @@
 #define TAILLE_MAX 2014
 
 // Nombre de zones max
-#define NB_ZONES_MAX 5
+#define NB_ZONES_MAX 10
 
 // Le fichier utilisé pour les sémaphores
 #define FICHIER_SEMAPHORES "./semaphores-zones"
