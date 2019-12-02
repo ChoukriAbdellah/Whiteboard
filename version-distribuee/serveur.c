@@ -18,7 +18,7 @@
 
 #include "structures.h"
 #include "affichage.h" 
-#include "TCP.h"
+#include "TCP.h" 
 
 //pthread_cond_t *zoneModifiee = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
 //for(int i=0; i<NB_ZONES_MAX; i++) zoneModifiee[i] = PTHREAD_COND_INITIALIZER;
@@ -239,26 +239,6 @@ struct sembuf opT[] = {
                     break;
             }
 
-                   // int attente;
-        /*while ( 1)
-        {
-          if((attente= semctl(idSem, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
-            perror("problème init");//suite
-         }
-         if (attente == 0)
-         {
-             while (semctl(idSem, temp->index, GETVAL) == 0)
-             {
-                 // On attend que le client ait fini sa modification
-             }
-             
-
-             
-         }
-        }*/
-
-           
-
             // On repasse le thread à 1 après qu'il ai envoyé sa mise à jour
             if ((semop(temp->idSemMAJ,opT+1,1)) < 0){
                 perror("Erreur semop ");
@@ -321,7 +301,7 @@ int main(int argc, char** argv){
         printf("\nServeur: En attente de connexion d'un nouveau client...\n");
         clientAddressLength=sizeof(clientAddress);
         newsockfd=accept(sockfd,(struct sockaddr*)&clientAddress,&clientAddressLength);
-        printf("Serveur: Connexion d'un nouveau client avec succès. (IP: %s)\n",inet_ntoa(clientAddress.sin_addr));
+        printf(CYN"Serveur: Connexion d'un nouveau client avec succès. (IP: %s)\n",inet_ntoa(clientAddress.sin_addr));
 
         //Un processus fils est crée pour chaque nouveau client
         pid=fork();
@@ -351,20 +331,9 @@ int main(int argc, char** argv){
                     
                 while(1){
 
-/*                    // Opération P
-                    opp.sem_op = -1;
-                    //opp.sem_flg = 0;
-                    opp.sem_flg = SEM_UNDO;
-        
-                    // Opération V
-                    opv.sem_op = 1;
-                    //opv.sem_flg = 0;
-                    opv.sem_flg = SEM_UNDO;*/
-
                     // Le serveur reçoit une zone où le client souhaite intervenir
 
                     int numZone;
-                    //recvPourTCP((char *)&numZone, sockfd);
                     recv(newsockfd,&numZone,sizeof(numZone),0);
 
                     operationsZ[0].sem_num = numZone;      
@@ -431,17 +400,17 @@ int main(int argc, char** argv){
                         p->zones[numZone] = new;
         
                         // Le serveur redonne l'accès à la zone
-                        for (size_t i = 0; i < NB_ZONES_MAX; i++)
-                        {
+                        //for (size_t i = 0; i < NB_ZONES_MAX; i++)
+                        //{
                             if ((semop(idSem,operationsZ+1,1)) < 0){ 
                                        perror("Erreur semop ");
                             exit(EXIT_FAILURE);
-                        }
+                        //}
 
                         }
                         
                       
-                        
+            
                         //printf("test affichage p chez serv après modif\n");
                         //afficheZones(p);        
 
