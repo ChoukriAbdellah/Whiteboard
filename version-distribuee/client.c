@@ -301,8 +301,8 @@ void* afficheMaj(void* args){
           
 
             zone reception;
-            int erreur = 
-            (sizeof(reception), (char *) &reception, temp->sockfd);
+            
+            int erreur = recvNonBloquant(sizeof(reception), (char *) &reception, temp->sockfd);
             switch(erreur){  
                 case 0:
                     // fprintf(stderr, "Serveur: Erreur reçue du client (IP: , zone n°%d) : send = 0\n", reception.numeroZone);
@@ -314,7 +314,7 @@ void* afficheMaj(void* args){
                     break;
                 case 1:
                     //printf("Serveur: Envoi de la zone %d au client terminé.\n",reception.numeroZone);
-                     err = pthread_mutex_lock(&verrou);
+                    err = pthread_mutex_lock(&verrou);
                     if ( err != 0 ) {
                         perror("Error to pthread_mutex_lock fonction");
                         exit(EXIT_FAILURE);

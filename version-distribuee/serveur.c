@@ -380,7 +380,7 @@ int main(int argc, char** argv){
                     int attente;
                     //printf("Avant attente\n");
                     if((attente= semctl(idSem, numZone, GETVAL)) == -1){ // On récupères le nombre de processus restants
-                        perror("Problème semaphore");//suite
+                        perror("Problème semaphore");
                         exit(EXIT_FAILURE);
                     }
 
@@ -436,12 +436,9 @@ int main(int argc, char** argv){
                         p->zones[numZone] = new;
         
                         // Le serveur redonne l'accès à la zone
-                        //for (size_t i = 0; i < NB_ZONES_MAX; i++)
-                        //{
-                            if ((semop(idSem,operationsZ+1,1)) < 0){ 
-                                       perror("Erreur semop ");
-                            exit(EXIT_FAILURE);
-                        //}
+                        if ((semop(idSem,operationsZ+1,1)) < 0){ 
+                            perror("Erreur semop ");
+                        exit(EXIT_FAILURE);
 
                         }
                         
@@ -455,10 +452,13 @@ int main(int argc, char** argv){
                 }
 
                 for (int i = 0; i < NB_ZONES_MAX; i++) {
-                    pthread_join(arrayT[i], NULL);
+                    int er;
+                    er=pthread_join(arrayT[i], NULL);
+                    if(er != 0){
+                        perror("Erreur pthread_join\n");
+                        exit(EXIT_FAILURE);
+                    }
                 }
-
-                //sleep(5);
 
             }
 
