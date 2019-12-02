@@ -27,7 +27,6 @@ int activerMAJ=0;
 
 void desactiverThreadMAJ(int Socket){
     activerMAJ = 0;
-    //printf("je viens de désactiver le thread\n");
 
     int opts;
 
@@ -46,12 +45,7 @@ void desactiverThreadMAJ(int Socket){
 }
 
 void activerThreadMAJ(int Socket){
-    activerMAJ = 1;
-    //printf("je viens de réactiver le thread\n");
-    /*if(fcntl(Socket, F_SETFL, fcntl(Socket, F_GETFL) | O_NONBLOCK) < 0) {
-        printf("erreur lors du passage en mode non bloquant");
-    }*/
- 
+    activerMAJ = 1; 
 	int opts;
  
 	if ((opts = fcntl(Socket, F_GETFL)) < 0) { 
@@ -64,8 +58,8 @@ void activerThreadMAJ(int Socket){
 		perror("fcntl(F_SETFL)");
 	}
 
-
-    pthread_cond_broadcast(&waitThread); // On reveille le thred
+    // On reveille le thred
+    pthread_cond_broadcast(&waitThread); 
 
 }
 
@@ -73,10 +67,15 @@ principale* receptionEspace(int Socket){
 
    printf("\nClient: Structure en cours de reception...\n");
     principale *p = malloc(sizeof(principale));
-
+    int erreurRecvPourTcp=0;
     for(int i=0; i<NB_ZONES_MAX; i++){
         zone reception;
-        recvPourTCP((char *) &reception, Socket);
+        erreurRecvPourTcp= recvPourTCP((char *) &reception, Socket);
+        if (erreurRecvPourTcp == -1)
+        {
+            perror("Error to sendPourTCP fonction");
+            exit(EXIT_FAILURE);
+        }
         p->zones[i] = reception;
     }
     printf("Client: Tout a bien été reçu.\n");
@@ -94,10 +93,10 @@ void editZone(principale *p, int numZone, int Socket){
         int choixCorrect = 0;
         int choix;
         while (!choixCorrect){     
-                printf("\n1. Modifier le titre\n");
+                printf(BLU"\n1. Modifier le titre\n");
                 printf("2. Modifier le texte \n");
                 printf("3. Terminer la modification\n \n");
-                printf("Tapez 1, 2 ou 3 > ");
+                printf(WHT"Tapez 1, 2 ou 3 > ");
 
                 scanf("%d", &choix);
 
@@ -124,12 +123,7 @@ void editZone(principale *p, int numZone, int Socket){
 
             char hostname[1024];
             hostname[1023] = '\0';
-            gethostname(hostname, 1023);
-            //printf("Hostname: %s\n", hostname);
-            //struct hostent* h;
-            //h = gethostbyname(hostname);
-            //printf("h_name: %s\n", h->h_name);
-
+            gethostname(hostname, 1023);  
             // Pour enlever le "\n" à la fin de la chaine saisie : 
             newData[strlen(newData)-1] = '\0';
         
@@ -150,14 +144,18 @@ void editZone(principale *p, int numZone, int Socket){
 
     // Le client envoie au serveur la zone après l'avoir modifiée
 
-    //printf("affichage zone modifiée chez client avant de la renvoyer \n");
     zone new;
     new = p->zones[numZone];
-    //afficheZone(new);
 
-    sendPourTCP(sizeof(new), (char *) &new, Socket);
+    int erreurSend =sendPourTCP(sizeof(new), (char *) &new, Socket);
+    if (erreurSend == -1)
+    {
+        perror("Error to sendPourTCP fonction");
+        exit(EXIT_FAILURE);
+    }
+    
 
-    printf("Vos modifications ont bien été enregistrés!\n");
+    printf(MAG"Vos modifications ont bien été enregistrés!\n");
 }
 
 void removeZone(principale *p, int numZone, int Socket){
@@ -188,56 +186,66 @@ int menu(int Socket, principale *p){
     int souhaiteQuitter=0;
     int numZone, choixMenu, choixCorrect=0;
 
-    //afficheZonesLeger(p);
-
     while (!choixCorrect){           
-        printf("\n ---------- MENU ---------- \n\n");
-        printf("1. Modifier un document\n");
+        printf(RED"\n ---------- MENU ---------- \n\n");
+        printf(BLU"1. Modifier un document\n");
         printf("2. Réinitialiser un document \n");
         printf("3. Quitter \n\n");
         printf("Tapez 1, 2 ou 3 > ");
 
-        scanf("%d", &choixMenu);
-
+        //scanf("%d", &choixMenu);
+        char saisie[255];
+        while(1)
+        {
+            fgets(saisie, 255, stdin);
+            if (sscanf(saisie, "%d", &choixMenu) == 1) break;
+            printf(RED"Saissisez un nombre...\n"WHT); 
+        }
 
         if(choixMenu == 1 || choixMenu == 2){
             printf("\nChoisissez lequel (0 à %d) > ", NB_ZONES_MAX-1);
 
-            //printf("avant scanf");
             scanf("%d", &numZone);
-            //printf("apres scanf");
             if(numZone >= 0 && numZone < NB_ZONES_MAX){
                 choixCorrect++;
             
             }
             else
                 printf("\nNuméro de zone incorrect.\n");  
-            }
+        }
 
-            else if(choixMenu == 3){
+        else {
+            if(choixMenu == 3){
                 choixCorrect++;
                 souhaiteQuitter++;
             }
 
             else
-                printf("\nNuméro du menu incorrect. \n");
+                printf(RED"\nNuméro du menu incorrect. \n");
+        }
     }
 
     if(!souhaiteQuitter){
         desactiverThreadMAJ(Socket);
 
         // Le client informe au serveur quel zone il souhaite modifier
-        send(Socket,&numZone,sizeof(numZone),0);
+        int erreur=send(Socket,&numZone,sizeof(numZone),0);
+        if (erreur == -1)
+        {
+            perror("error of send fonction");
+            exit(EXIT_FAILURE);
+        }
 
-        // On envoie une autorisation au serv pour lui indiquer qu'on est prêt à recevoir
-        // Car on vient de bloquer le thread des mises à jour
-           
-        //int autorisation = 1;
-        //send(Socket,&autorisation,sizeof(autorisation),0);
-
-        // Le client reçoit du serveur si la zone est accessible ou non
+        // Le client reçoit du serveur si la zone est accessible (1 ) ou non (0)
         int peutModif;
-        recv(Socket, &peutModif, sizeof(peutModif), 0);
+        int read_size=0;
+        read_size=recv(Socket, &peutModif, sizeof(peutModif), 0);
+         
+          if(read_size == -1)
+            {
+                perror("Echec de réception");
+                exit(EXIT_FAILURE);
+            }
 
         activerThreadMAJ(Socket);
 
@@ -266,50 +274,61 @@ int menu(int Socket, principale *p){
 
 void* afficheMaj(void* args){
     maj_struct_client* temp = args;
-    //printf("thread client en place activerMAJ = %d\n", activerMAJ);
+    int err=0;
     while(1){
-        pthread_mutex_lock(&verrou);
-        while(activerMAJ != 1){
-            //printf("thread mis en attente le temps de recv\n");
-            pthread_cond_wait(&waitThread, &verrou);
+        err = pthread_mutex_lock(&verrou);
+        if ( err != 0 ) {
+               perror("Error to pthread_mutex_lock fonction");
+               exit(EXIT_FAILURE);
         }
-        pthread_mutex_unlock(&verrou);
+        while(activerMAJ != 1){
+          err = pthread_cond_wait(&waitThread, &verrou);
+           if ( err != 0 )
+           {
+               perror("Error to pthread_cond_wait fonction");
+               exit(EXIT_FAILURE);
+           }
+           
+        }
+        err = pthread_mutex_unlock(&verrou);
+        if ( err != 0 ) {
+               perror("Error to pthread_mutex_unlock fonction");
+               exit(EXIT_FAILURE);
+        }
 
         // Là le thread est autorisé à recevoir
         if(activerMAJ == 1){
-            //printf("Thread prêt à recv\n");
-            //int m;
-            //pthread_mutex_lock(&verrou);
-            // Rend la socket non bloquante au cas où la MAJ ne reçoit rien
-            /*if((recv(temp->sockfd, &m, sizeof(m), 0)) < 0){
-                printf("recv error: %s\n", strerror(errno));
-            }*/
+          
 
             zone reception;
-            int erreur = recvNonBloquant(sizeof(reception), (char *) &reception, temp->sockfd);//recvNonBloquant();
+            int erreur = 
+            (sizeof(reception), (char *) &reception, temp->sockfd);
             switch(erreur){  
                 case 0:
-                    //fprintf(stderr, "Serveur: Erreur reçue du client (IP: , zone n°%d) : send = 0\n", reception.numeroZone);
+                    // fprintf(stderr, "Serveur: Erreur reçue du client (IP: , zone n°%d) : send = 0\n", reception.numeroZone);
+                    // exit(EXIT_FAILURE);
                     break;
                 case -1:
-                    //fprintf(stderr, "Serveur: Erreur reçue du client (IP: , zone n°%d) : send = -1\n", reception.numeroZone);
+                    // fprintf(stderr, "Serveur: Erreur reçue du client (IP: , zone n°%d) : send = -1\n", reception.numeroZone);
+                    // exit(EXIT_FAILURE);
                     break;
                 case 1:
                     //printf("Serveur: Envoi de la zone %d au client terminé.\n",reception.numeroZone);
+                     err = pthread_mutex_lock(&verrou);
+                    if ( err != 0 ) {
+                        perror("Error to pthread_mutex_lock fonction");
+                        exit(EXIT_FAILURE);
+                    }
+                    temp->p->zones[reception.numeroZone] = reception;
+                    err = pthread_mutex_unlock(&verrou);
+                    if ( err != 0 ) {
+                        perror("Error to pthread_mutex_unlock fonction");
+                        exit(EXIT_FAILURE);
+                    }
+                    printf(YEL"UNE MAJ VIENT D'ETRE REALISEE SUR CETTE ZONE %d\n", reception.numeroZone);
+                    afficheZone(reception);
                     break;
             }  
-            if(erreur > 0){
-                printf("taille reception %ld\n", sizeof(reception));
-                printf("numZone %d\n", reception.numeroZone);
-                pthread_mutex_lock(&verrou);
-                temp->p->zones[reception.numeroZone] = reception;
-                pthread_mutex_unlock(&verrou);
-                printf("UNE MAJ VIENT D ETRE REALISEE SUR CETTE ZONE %d\n", reception.numeroZone);
-                afficheZone(reception);
-            }
-            //else{printf("rien sa mere\n"); sleep(1);}
-          //sleep(3); 
-            //printf("(debug)Entier reçu %d après mise à jour (activerMAJ=%d)\n",m, activerMAJ);
         }
   
     }
@@ -326,7 +345,7 @@ int main(int argc, char** argv){
 
         exit(1);
     }
-    int sockfd;
+    int sockfd, er;
 
     struct sockaddr_in serverAddress;//adresse distante
 
@@ -335,10 +354,11 @@ int main(int argc, char** argv){
 
     //Création de la socket
     sockfd=socket(AF_INET,SOCK_STREAM,0);
-    /*if ((sockfd = socket(PF_INET, SOCK_STREAM, 0)) == -1){
-		perror("socket");
-		exit(EXIT_FAILURE);
-	}*/
+    if (sockfd == -1)
+    {
+         printf("La création du socket a échoué\n");
+    }
+
     //initialize the socket addresses
     memset(&serverAddress,0,sizeof(serverAddress));
     serverAddress.sin_family=AF_INET;
@@ -346,7 +366,11 @@ int main(int argc, char** argv){
     serverAddress.sin_port=htons(PORT);
 
     //client  connect to server on port
-    connect(sockfd,(struct sockaddr *)&serverAddress,sizeof(serverAddress));
+    er = connect(sockfd,(struct sockaddr *)&serverAddress,sizeof(serverAddress));
+    if(er ==-1) {
+        perror("Error to connect function");
+        exit(EXIT_FAILURE);
+    }
     //send to sever and receive from server
 
     pthread_t threadMAJ;
@@ -369,7 +393,12 @@ int main(int argc, char** argv){
     while(!souhaiteQuitter){
         souhaiteQuitter = menu(sockfd, p);
     }
-    pthread_join(threadMAJ, NULL);
+    er=pthread_join(threadMAJ, NULL);
+    if( er != 0 )
+    {
+        printf( "pthread_join error.\n" );
+        exit( 1 );
+    }
     return 0;
 
 }
