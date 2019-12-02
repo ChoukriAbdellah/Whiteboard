@@ -54,7 +54,7 @@ void activerThreadMAJ(int Socket){
  
 	int opts;
  
-	if ((opts = fcntl(Socket, F_GETFL)) < 0) {
+	if ((opts = fcntl(Socket, F_GETFL)) < 0) { 
 		perror("fcntl(F_GETFL)");
 	}
  

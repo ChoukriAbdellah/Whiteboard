@@ -20,41 +20,33 @@
 #include "affichage.h" 
 #include "TCP.h" 
 
-//pthread_cond_t *zoneModifiee = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
-//for(int i=0; i<NB_ZONES_MAX; i++) zoneModifiee[i] = PTHREAD_COND_INITIALIZER;
-pthread_cond_t zoneModifiee = PTHREAD_COND_INITIALIZER;
-pthread_cond_t zoneModifiee2 = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t verrou = PTHREAD_MUTEX_INITIALIZER;
 
-// Operations
+// Tableau d'opérations à utiliser sur le tableau de sémaphores utilisé pour l'exclusion mutuelle entre les différentes zones
 struct sembuf operationsZ[] = {
     { 0, -1, SEM_UNDO }, // P
     { 0, 1, SEM_UNDO }, // V
     {0, 0, SEM_UNDO} // Z
 }; 
 
+// Tableau d'opérations à utiliser sur le tableau de sémaphores utilisé pour le rendez-vous des threads lors de l'envoi d'une mise à jour
 struct sembuf operationsM[] = {
     { 0, -1, SEM_UNDO }, // P
     { 0, 1, SEM_UNDO }, // V
     {0, 0, SEM_UNDO} // Z
-}; 
-
-
-
-
+};
 
 void envoiEspace(principale* p, int Socket, struct in_addr IP){
-    printf("Serveur: Envoi en cours...\n");
+    printf("Serveur : Envoi en cours...\n");
 
+    int nbZonesBienEnvoyees=0;
     for(int i=0; i<NB_ZONES_MAX; i++){
         // A chaque envoi, on envoie la zone i
         zone z;
         z = p->zones[i];
-        //int len = 0;
-        int err;
 
+        int err;
         err = sendPourTCP(sizeof(z), (char *) &z, Socket);
-        //printf("err: %d \n", err);
         switch(err){
         case 0:
             fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s, zone n°%d) : send = 0\n", inet_ntoa(IP), i);
@@ -64,31 +56,51 @@ void envoiEspace(principale* p, int Socket, struct in_addr IP){
             break;
         case 1:
             //printf("Serveur: Envoi de la zone %d au client (IP: %s) terminé.\n",i, inet_ntoa(IP));
+            nbZonesBienEnvoyees++;
             break;
         }
     }
 
-    printf("Serveur: Le client (IP: %s) a bien reçue toutes les données.\n", inet_ntoa(IP));
+    if(nbZonesBienEnvoyees == NB_ZONES_MAX)
+        printf("Serveur: Le client (IP: %s) a bien reçue toutes les données.\n", inet_ntoa(IP));
+    else
+        fprintf(stderr, "Serveur: Au moins une zone a été mal reçue chez le client (IP: %s)\n", inet_ntoa(IP));
+    
 }
 
 int initSemaphores() {
-  
+
     //Création du fichier s'il n'existe pas
-    int fd = open(FICHIER_SEMAPHORES, O_CREAT|O_WRONLY, 0644);
+    int fd;
+    if((fd = open(FICHIER_SEMAPHORES2, O_CREAT|O_WRONLY, 0644)) == -1){
+        perror("Erreur open chez initSemaphores ");
+        exit(EXIT_FAILURE);
+    }
+
     close(fd);
-  
-    key_t cle = ftok(FICHIER_SEMAPHORES, CLE_SEMAPHORES);
 
-    // Création de NB_ZONE_MAX sémaphore associée a la clé
-    int idSem = semget(cle, NB_ZONES_MAX, IPC_CREAT|0666);
+    // On récupère la clé 
+    key_t cle;
+    if ((cle = ftok(FICHIER_SEMAPHORES, CLE_SEMAPHORES)) == (key_t) -1){
+        perror("Erreur ftok chez initSemaphores ");
+        exit(EXIT_FAILURE);
+    }
 
-    // Initialisation des sémaphore a 1
+    // Création de NB_ZONE_MAX sémaphores
+    int idSem;
+    if ((idSem = semget(cle, NB_ZONES_MAX, IPC_CREAT | 0666)) < 0){
+        perror("Erreur semget chez initSemaphores ");
+        exit(EXIT_FAILURE);
+    } 
+
+    // Initialisation des sémaphores a 1 
     union semun egCtrl;
     egCtrl.val=1;
 
     for(int i=0; i<NB_ZONES_MAX; i++){
         if(semctl(idSem, i, SETVAL, egCtrl) == -1) {
             perror("Probleme semctl fonction initSemaphores()");
+            exit(EXIT_FAILURE);
         }
     }  
 
@@ -99,13 +111,26 @@ int initSemaphores() {
 int initSemaphores2() {
   
     //Création du fichier s'il n'existe pas
-    int fd = open(FICHIER_SEMAPHORES2, O_CREAT|O_WRONLY, 0644);
+    int fd;
+    if((fd = open(FICHIER_SEMAPHORES2, O_CREAT|O_WRONLY, 0644)) == -1){
+        perror("Erreur open chez initSemaphores2 ");
+        exit(EXIT_FAILURE);
+    }
     close(fd);
-  
-    key_t cle = ftok(FICHIER_SEMAPHORES2, CLE_SEMAPHORES2);
+    
+    key_t cle;
+    if ((cle = ftok(FICHIER_SEMAPHORES2, CLE_SEMAPHORES2)) == (key_t) -1){
+        perror("Erreur ftok ");
+        exit(EXIT_FAILURE);
+    }
 
-    // Création de NB_ZONE_MAX sémaphore associée a la clé
-    int idSem = semget(cle, NB_ZONES_MAX, IPC_CREAT|0666);
+
+    // Création de NB_ZONE_MAX sémaphores
+    int idSem;
+    if ((idSem = semget(cle, NB_ZONES_MAX, IPC_CREAT | 0666)) < 0){
+        perror("Erreur semget chez initSemaphores2 ");
+        exit(EXIT_FAILURE);
+    } 
 
     // Initialisation des sémaphore a 1
     union semun egCtrl;
@@ -121,13 +146,17 @@ int initSemaphores2() {
 
 }
 
-principale * initZones(char* fichier_zones, int entier_cle) {
+principale * initZones() {
     //Création du fichier s'il n'existe pas
-    int fd = open(fichier_zones, O_CREAT|O_WRONLY, 0644);
+    int fd;
+    if((fd = open(FICHIER_PARTAGE, O_CREAT|O_WRONLY, 0644)) == -1){
+        perror("Erreur open chez initSemaphores2 ");
+        exit(EXIT_FAILURE);
+    }
     close(fd);
     
-    key_t cle = ftok(fichier_zones, entier_cle);
-     if (cle  == (key_t) -1){
+    key_t cle;
+    if ((cle = ftok(FICHIER_PARTAGE, CLE_PARTAGE)) == (key_t) -1){
         perror("Erreur ftok ");
         exit(EXIT_FAILURE);
     }
@@ -153,7 +182,7 @@ principale * initZones(char* fichier_zones, int entier_cle) {
         exit(EXIT_FAILURE);
     } 
 
-    printf("Serveur: Segment de mémoire partagée crée et attaché.\n");
+    printf("Serveur : Segment de mémoire partagée crée et attaché.\n");
 
     principale * shmaddr;
     if ((shmaddr = (principale *) shmat(idS, NULL, 0)) == (void *) -1){
@@ -163,7 +192,7 @@ principale * initZones(char* fichier_zones, int entier_cle) {
     
     *shmaddr = p;
 
-    printf("Serveur: Initialisation de l'espace partagé terminé.\n");
+    printf("Serveur : Initialisation de l'espace partagé terminé.\n");
   
     //afficheZonesLeger(*shmaddr);
 
@@ -173,34 +202,17 @@ principale * initZones(char* fichier_zones, int entier_cle) {
 void* MAJ(void* arg){
 
     maj_struct_serveur *temp =  arg; 
-    //printf("thread n°%d crée chez fils\n", temp->index);
 
-    /*int fd = open(FICHIER_SEMAPHORES, O_CREAT|O_WRONLY, 0644);
-    close(fd);
+    struct sembuf opT[] = {
+        { 0, -1, SEM_UNDO }, // P
+        { 0, 1, SEM_UNDO }, // V
+        {0, 0, SEM_UNDO} // Z
+    }; 
 
-    // On calcule notre clé
-    key_t cleSem;
-    if ( (cleSem = ftok(FICHIER_SEMAPHORES2, CLE_SEMAPHORES2)) == (key_t) -1){
-        perror("Erreur ftok ");
-        exit(EXIT_FAILURE);
-    }
-
-    int idSem=0;
-
-    if ((idSem=semget(cleSem, NB_ZONES_MAX, 0666)) < 0){
-        perror("Erreur semget ");
-        exit(EXIT_FAILURE);
-    } */
-
-
-struct sembuf opT[] = {
-    { 0, -2, SEM_UNDO }, // P
-    { 0, 1, SEM_UNDO }, // V
-    {0, 0, SEM_UNDO} // Z
-}; 
     opT[0].sem_num = temp->index;
     opT[1].sem_num = temp->index;
     opT[2].sem_num = temp->index;
+    
     while(1){
 
             printf("thread n°%d : en attente d'une fin de modif\n", temp->index);
@@ -269,41 +281,65 @@ int main(int argc, char** argv){
 
     int idSemMAJ = initSemaphores2();
 
-    principale* p = initZones(FICHIER_PARTAGE, CLE_PARTAGE);
+    principale* p = initZones();
 
-    int sockfd;//to create socket
-    int newsockfd;//to accept connection
+    int sockfd;
+    int newsockfd;
 
-    struct sockaddr_in serverAddress;//server receive on this address
-    struct sockaddr_in clientAddress;//server sends to client on this address
+    // Adresse de réception
+    struct sockaddr_in serverAddress;
 
-    //int n, listener, rv;
+    // Adresse d'envoi
+    struct sockaddr_in clientAddress;
+
     socklen_t clientAddressLength;
-    int pid;
 
-    //create socket
-    sockfd=socket(AF_INET,SOCK_STREAM,0);
+    // Création de la socket
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0); 
+    if (sockfd == -1) { 
+        perror("Serveur : Erreur socket.\n"); 
+        exit(0); 
+    } 
+    else
+        printf("Serveur : Socket créée avec succès\n");
+
     //initialize the socket addresses
-    memset(&serverAddress,0,sizeof(serverAddress));
+    bzero(&serverAddress, sizeof(serverAddress));
+
+    // Equivalent à :
+    //memset(&serverAddress,0,sizeof(serverAddress));
+
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
     serverAddress.sin_port = htons(PORT);
 
-    //bind the socket with the server address and port
-    bind(sockfd,(struct sockaddr *)&serverAddress, sizeof(serverAddress));
+    // Binding newly created socket to given IP and verification 
+    if ((bind(sockfd,(struct sockaddr *)&serverAddress, sizeof(serverAddress)) != 0)) { 
+        perror("Serveur : Erreur bind\n"); 
+        exit(EXIT_FAILURE); 
+    } 
+    else
+        printf("Serveur : Bind réussi\n"); 
 
     //listen for connection from client
-    listen(sockfd,5);
+    if ((listen(sockfd, 5)) != 0) { 
+        perror("Serveur : Erreur listen\n"); 
+        exit(0); 
+    } 
+    else
+        printf("Serveur : En écoute...\n\n"); 
    
     while(1)
     {
         //Le processus parent attend une nouvelle connexion
-        printf("\nServeur: En attente de connexion d'un nouveau client...\n");
+        printf("\nServeur : En attente de connexion d'un nouveau client...\n");
         clientAddressLength=sizeof(clientAddress);
         newsockfd=accept(sockfd,(struct sockaddr*)&clientAddress,&clientAddressLength);
-        printf(CYN"Serveur: Connexion d'un nouveau client avec succès. (IP: %s)\n",inet_ntoa(clientAddress.sin_addr));
+        printf(CYN"Serveur : Connexion d'un nouveau client avec succès. (IP: %s)\n",inet_ntoa(clientAddress.sin_addr));
 
         //Un processus fils est crée pour chaque nouveau client
+        int pid;
         pid=fork();
         if(pid==0){
             // On est dans le processus fils
