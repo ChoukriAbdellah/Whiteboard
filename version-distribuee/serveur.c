@@ -38,7 +38,7 @@ struct sembuf operationsM[] = {
 };
 
 void envoiEspace(principale* p, int Socket, struct in_addr IP){
-    printf("Serveur : Envoi en cours...\n");
+    printf(CYN"Serveur (id %d) : Envoi en cours...\n", getpid());
 
     int nbZonesBienEnvoyees=0;
     for(int i=0; i<NB_ZONES_MAX; i++){
@@ -50,10 +50,10 @@ void envoiEspace(principale* p, int Socket, struct in_addr IP){
         err = sendPourTCP(sizeof(z), (char *) &z, Socket);
         switch(err){
         case 0:
-            fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s, zone n°%d) : send = 0\n", inet_ntoa(IP), i);
+            fprintf(stderr, "Serveur (id %d) : Erreur reçue du client (IP: %s, zone n°%d) : send = 0\n", getpid(), inet_ntoa(IP), i);
             break;
         case -1:
-            fprintf(stderr, "Serveur: Erreur reçue du client (IP: %s, zone n°%d) : send = -1\n", inet_ntoa(IP), i);
+            fprintf(stderr, "Serveur (id %d) : Erreur reçue du client (IP: %s, zone n°%d) : send = -1\n", getpid(), inet_ntoa(IP), i);
             break;
         case 1:
             //printf("Serveur: Envoi de la zone %d au client (IP: %s) terminé.\n",i, inet_ntoa(IP));
@@ -63,9 +63,9 @@ void envoiEspace(principale* p, int Socket, struct in_addr IP){
     }
 
     if(nbZonesBienEnvoyees == NB_ZONES_MAX)
-        printf("Serveur: Le client (IP: %s) a bien reçue toutes les données.\n", inet_ntoa(IP));
+        printf("Serveur (id %d) : Mon client (IP: %s) a bien reçue toutes les données.\n", getpid(), inet_ntoa(IP));
     else
-        fprintf(stderr, "Serveur: Au moins une zone a été mal reçue chez le client (IP: %s)\n", inet_ntoa(IP));
+        fprintf(stderr, "Serveur (id %d) : Au moins une zone a été mal reçue chez mon client (IP: %s)\n", getpid(), inet_ntoa(IP));
     
 }
 
@@ -183,7 +183,7 @@ principale * initZones() {
         exit(EXIT_FAILURE);
     } 
 
-    printf("Serveur : Segment de mémoire partagée crée et attaché.\n");
+    printf("Serveur (id %d) : Segment de mémoire partagée crée et attaché.\n", getpid());
 
     principale * shmaddr;
     if ((shmaddr = (principale *) shmat(idS, NULL, 0)) == (void *) -1){
@@ -193,7 +193,7 @@ principale * initZones() {
     
     *shmaddr = p;
 
-    printf("Serveur : Initialisation de l'espace partagé terminé.\n");
+    printf("Serveur (id %d) : Initialisation de l'espace partagé terminé.\n", getpid());
   
     //afficheZonesLeger(*shmaddr);
 
@@ -237,18 +237,18 @@ void* MAJ(void* arg){
             zone z;
             z = temp->p->zones[temp->index];
             //printf("test affichage zone avant envoi\n");
-            afficheZone(z);
-            //printf("envoi de la mise à jour : en cours\n");
+            //afficheZone(z);
+            //printf(CYN"Serveur (id %d): Envoi de la mise à jour sur la zone %d à mon client...\n",getpid(), temp->index);
             int erreur = sendPourTCP(sizeof(z), (char *)&z, temp->sockfd);
             switch(erreur){
                 case 0:
-                    fprintf(stderr, "Serveur: Erreur reçue du client (IP: , zone n°%d) : send = 0\n", temp->index);
+                    fprintf(stderr, "Serveur (id %d) : Erreur reçue du client (IP: , zone n°%d) : send = 0\n",getpid(), temp->index);
                     break;
                 case -1:
-                    fprintf(stderr, "Serveur: Erreur reçue du client (IP: , zone n°%d) : send = -1\n", temp->index);
+                    fprintf(stderr, "Serveur (id %d): Erreur reçue du client (IP: , zone n°%d) : send = -1\n",getpid(), temp->index);
                     break;
                 case 1:
-                    printf("Serveur: Envoi de la mise à jour du document n°%d au client terminé.\n",temp->index);
+                    printf(CYN"Serveur (id %d): Envoi de la mise à jour du document n°%d au client terminé.\n",getpid(), temp->index);
                     break;
             }
 
@@ -282,6 +282,8 @@ int main(int argc, char** argv){
 
     int idSemMAJ = initSemaphores2();
 
+    printf("Serveur (id %d) : Initialisation des tableaux de sémaphores terminée.\n", getpid());
+
     principale* p = initZones();
 
     int sockfd;
@@ -303,7 +305,7 @@ int main(int argc, char** argv){
         exit(0); 
     } 
     else
-        printf("Serveur : Socket créée avec succès\n");
+        printf("Serveur (id %d) : Socket créée avec succès\n", getpid());
 
     //initialize the socket addresses
     bzero(&serverAddress, sizeof(serverAddress));
@@ -321,7 +323,7 @@ int main(int argc, char** argv){
         exit(EXIT_FAILURE); 
     } 
     else
-        printf("Serveur : Bind réussi\n"); 
+        printf("Serveur (id %d) : Bind réussi\n", getpid()); 
 
     //listen for connection from client
     if ((listen(sockfd, 5)) != 0) { 
@@ -329,15 +331,15 @@ int main(int argc, char** argv){
         exit(0); 
     } 
     else
-        printf("Serveur : En écoute...\n\n"); 
+        printf("Serveur (id %d) : En écoute...\n\n", getpid()); 
    
     while(1)
     {
         //Le processus parent attend une nouvelle connexion
-        printf("\nServeur : En attente de connexion d'un nouveau client...\n");
+        printf(WHT"Serveur (id %d) : En attente de connexion d'un nouveau client...\n", getpid());
         clientAddressLength=sizeof(clientAddress);
         newsockfd=accept(sockfd,(struct sockaddr*)&clientAddress,&clientAddressLength);
-        printf(CYN"Serveur : Connexion d'un nouveau client avec succès. (IP: %s)\n",inet_ntoa(clientAddress.sin_addr));
+        printf(WHT"\nServeur (id %d) : Connexion d'un nouveau client avec succès. (IP: %s)\n",getpid(), inet_ntoa(clientAddress.sin_addr));
 
         //Un processus fils est crée pour chaque nouveau client
         int pid;
@@ -354,7 +356,7 @@ int main(int argc, char** argv){
                     var->p = p;
                     var->index = i;
                     var->idSemMAJ = idSemMAJ;
-
+ 
                     if(pthread_create(&arrayT[i], NULL, MAJ, var) == -1) {
                         perror("pthread_create");
                         return EXIT_FAILURE;
@@ -374,14 +376,14 @@ int main(int argc, char** argv){
                     int nbRecu=0;
                     nbRecu=recv(newsockfd,&numZone,sizeof(numZone),0);
                     if(nbRecu == 0){
-                        printf("Serveur: Le client (IP: %s) s'est déconnecté.\n", inet_ntoa(clientAddress.sin_addr));
+                        printf("Serveur (id %d) : Mon client (IP: %s) s'est déconnecté.\n", getpid(), inet_ntoa(clientAddress.sin_addr));
                         kill(getpid(), SIGKILL);
                     }
 
                     operationsZ[0].sem_num = numZone;      
                     operationsZ[1].sem_num = numZone;
 
-                    printf("Serveur: Mon client cherche à agir sur la zone n°%d\n", numZone);
+                    printf("Serveur (id %d) : Mon client cherche à agir sur la zone n°%d\n", getpid(), numZone);
 
                     int attente;
                     //printf("Avant attente\n");
@@ -393,11 +395,11 @@ int main(int argc, char** argv){
                     if (attente == 0) {
                         int peutModif = 0;
                         send(newsockfd,&(peutModif),sizeof(peutModif),0);    
-                        printf("Serveur: Accès refusé à la zone n°%d car déjà en cours de modification.\n", numZone);                
+                        printf("Serveur (id %d) : Je refuse l'accès à la zone n°%d pour mon client car déjà en cours de modification.\n", getpid(), numZone);                
                     }
 
                     else{
-                        printf("Serveur: Accès autorisé à la zone n°%d.\n", numZone);  
+                        printf("Serveur (id %d) : J'autorise l'accès à la zone n°%d pour mon client.\n", getpid(), numZone);  
                         // On bloque l'accès à la zone
                         if ((semop(idSem,operationsZ,1)) < 0){ 
                             perror("Erreur semop ");
@@ -415,7 +417,7 @@ int main(int argc, char** argv){
                         zone new;
                         err = recvPourTCP((char *) &new, newsockfd);
                         if(err == 0){
-                            printf("Serveur: Le client (IP: %s) s'est déconnecté.\n", inet_ntoa(clientAddress.sin_addr));
+                            printf("Serveur (id %d) : Mon client (IP: %s) s'est déconnecté.\n", getpid(), inet_ntoa(clientAddress.sin_addr));
                             kill(getpid(), SIGKILL);
                         }
                             
@@ -429,7 +431,7 @@ int main(int argc, char** argv){
                         operationsM[1].sem_num = numZone;
                         operationsM[2].sem_num = numZone;
 
-                        printf("attente avant réveil = %d\n", attente);
+                        //printf("attente avant réveil = %d\n", attente);
                           
                         if ((semop(idSemMAJ,operationsM,1)) < 0){ 
                             perror("Erreur semop ");
@@ -440,7 +442,7 @@ int main(int argc, char** argv){
                             perror("problème init");//suite
                         }
 
-                        printf("attente après réveil = %d\n", attente); 
+                        //printf("attente après réveil = %d\n", attente); 
 
                         //printf("err reception new zone : %d \n", err);
 
@@ -486,7 +488,7 @@ int main(int argc, char** argv){
         exit(EXIT_FAILURE);
     }
 
-    printf("Serveur: Segment détaché.\n");
+    printf("Serveur : Segment détaché.\n");
 
     return 0;
 

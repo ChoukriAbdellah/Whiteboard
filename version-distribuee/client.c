@@ -88,7 +88,7 @@ void editZone(principale *p, int numZone, int Socket){
     //afficheZone(p->zones[numZone]);
 
     int veutStopModif=0;
-    while(!veutStopModif){
+    while(!veutStopModif){ 
         int choixCorrect = 0;
         int choix;
         while (!choixCorrect){     
@@ -163,12 +163,13 @@ void removeZone(principale *p, int numZone, int Socket){
     char newData[TAILLE_MAX];
     int n;
     printf("\nVous vous apprêtez à supprimer le document n°%d.\n\n", numZone);
-    printf("Etes vous sur de vouloir supprimer le contenu de cette Zone ? > ");
+    printf("Etes vous sur de vouloir supprimer le contenu de ce document (tapez oui ou n'importe quoi d'autre pour annuler) ? > ");
     scanf("%s",newData);
     n=strcmp(newData,"oui");
 
     if(n == 0){
        strcpy(p->zones[numZone].texte, "");
+       strcpy(p->zones[numZone].titre, "Document vide");
         // Le client envoie au serveur la zone après l'avoir modifiée
         zone new;
         new = p->zones[numZone];
@@ -193,8 +194,9 @@ int menu(int Socket, principale *p){
         printf(BLU"1. Modifier un document\n");
         printf("2. Réinitialiser un document \n");
         printf("3. Afficher un récapitulatif des documents \n");
-        printf("4. Quitter \n\n");
-        printf("Tapez 1, 2 ou 3 > ");
+        printf("4. Lire le contenu d'un document \n");
+        printf("5. Quitter \n\n");
+        printf(WHT"Tapez un chiffre de 1 à 5 > ");
 
         //scanf("%d", &choixMenu);
         char saisie[255];
@@ -205,11 +207,15 @@ int menu(int Socket, principale *p){
             printf(RED"Saissisez un nombre...\n"WHT); 
         }
 
-        if(choixMenu == 1 || choixMenu == 2){
-            printf("\nChoisissez lequel (0 à %d) > ", NB_ZONES_MAX-1);
+        if(choixMenu == 1 || choixMenu == 2 || choixMenu == 4){
+            printf(WHT"\nChoisissez lequel (0 à %d) > ", NB_ZONES_MAX-1);
 
             scanf("%d", &numZone);
             if(numZone >= 0 && numZone < NB_ZONES_MAX){
+                if(choixMenu == 4){
+                    souhaiteAfficher++;
+                    afficheZone(p->zones[numZone]);
+                }
                 choixCorrect++;
             
             }
@@ -224,9 +230,9 @@ int menu(int Socket, principale *p){
                 afficheZonesLeger(*p);
             }
 
-            else if(choixMenu == 4){
-                choixCorrect++;
+            else if(choixMenu == 5){
                 souhaiteQuitter++;
+                choixCorrect++;
             }
 
             else
