@@ -40,6 +40,9 @@ struct sembuf operationsM[] = {
 }; 
 
 
+
+
+
 void envoiEspace(principale* p, int Socket, struct in_addr IP){
     printf("Serveur: Envoi en cours...\n");
 
@@ -172,26 +175,33 @@ void* MAJ(void* arg){
     maj_struct_serveur *temp =  arg; 
     //printf("thread n°%d crée chez fils\n", temp->index);
 
-    int fd = open(FICHIER_SEMAPHORES, O_CREAT|O_WRONLY, 0644);
+    /*int fd = open(FICHIER_SEMAPHORES, O_CREAT|O_WRONLY, 0644);
     close(fd);
 
     // On calcule notre clé
     key_t cleSem;
-    if ( (cleSem = ftok(FICHIER_SEMAPHORES, CLE_SEMAPHORES)) == (key_t) -1){
+    if ( (cleSem = ftok(FICHIER_SEMAPHORES2, CLE_SEMAPHORES2)) == (key_t) -1){
         perror("Erreur ftok ");
         exit(EXIT_FAILURE);
     }
 
     int idSem=0;
 
-    if ((idSem=semget(cleSem, 1, 0666)) < 0){
+    if ((idSem=semget(cleSem, NB_ZONES_MAX, 0666)) < 0){
         perror("Erreur semget ");
         exit(EXIT_FAILURE);
-    } 
+    } */
 
 
+struct sembuf opT[] = {
+    { 0, -2, SEM_UNDO }, // P
+    { 0, 1, SEM_UNDO }, // V
+    {0, 0, SEM_UNDO} // Z
+}; 
+    opT[0].sem_num = temp->index;
+    opT[1].sem_num = temp->index;
+    opT[2].sem_num = temp->index;
     while(1){
-            /*operationsM[2].sem_num = temp->index;
 
             printf("thread n°%d : en attente d'une fin de modif\n", temp->index);
 
@@ -202,27 +212,15 @@ void* MAJ(void* arg){
 
             printf("attente avant mise en attente = %d\n", attente);
 
-            if ((semop(idSem,operationsM+2,1)) < 0){ // Mise en attente
+
+            if ((semop(temp->idSemMAJ,opT+2,1)) < 0){ // Mise en attente
                 perror("Erreur semop ");
                 exit(EXIT_FAILURE);
             }
 
-            printf("thread n°%d : fin modif\n", temp->index);*/
+            printf("thread n°%d : fin modif\n", temp->index);
 
-                    int attente;
-        while ( 1)
-        {
-          if((attente= semctl(idSem, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
-            perror("problème init");//suite
-        }
-         if (attente == 0)
-         {
-             while (semctl(idSem, temp->index, GETVAL) == 0)
-             {
-                 // On attend que le client ait fini sa modification
-             }
-             
-                 // Là le thread doit envoyer la mise à jour
+            // Là le thread doit envoyer la mise à jour
             zone z;
             z = temp->p->zones[temp->index];
             printf("test affichage zone avant envoi\n");
@@ -240,17 +238,32 @@ void* MAJ(void* arg){
                     printf("Serveur: Envoi de la mise à jour du document n°%d au client terminé.\n",temp->index);
                     break;
             }
+
+                   // int attente;
+        /*while ( 1)
+        {
+          if((attente= semctl(idSem, temp->index, GETVAL)) == -1){ // On récupères le nombre de processus restants
+            perror("problème init");//suite
+         }
+         if (attente == 0)
+         {
+             while (semctl(idSem, temp->index, GETVAL) == 0)
+             {
+                 // On attend que le client ait fini sa modification
+             }
+             
+
              
          }
-        }
+        }*/
 
            
-/*
+
             // On repasse le thread à 1 après qu'il ai envoyé sa mise à jour
-            if ((semop(idSem,operationsM,1)) < 0){
+            if ((semop(temp->idSemMAJ,opT+1,1)) < 0){
                 perror("Erreur semop ");
                 exit(EXIT_FAILURE);
-            }*/
+            }
     }
 
     pthread_exit(NULL);
@@ -395,21 +408,22 @@ int main(int argc, char** argv){
                             perror("problème init");//suite
                         }
 
-                        operationsM[0].sem_num = numZone;      
+                        operationsM[0].sem_num = numZone;
                         operationsM[1].sem_num = numZone;
+                        operationsM[2].sem_num = numZone;
 
-                        /*printf("attente avant réveil = %d\n", attente);
+                        printf("attente avant réveil = %d\n", attente);
                           
                         if ((semop(idSemMAJ,operationsM,1)) < 0){ 
                             perror("Erreur semop ");
                             exit(EXIT_FAILURE);
                         }
 
-                        if((attente = semctl(idSemMAJ, numZone, GETVAL)) == -1){ // On récupères le nombre de processus restants
+                        if((attente = semctl(idSemMAJ, numZone, GETVAL)) == -1){ // On récupère le nombre de processus restants
                             perror("problème init");//suite
                         }
 
-                        printf("attente après réveil = %d\n", attente);*/
+                        printf("attente après réveil = %d\n", attente); 
 
                         //printf("err reception new zone : %d \n", err);
 
@@ -417,11 +431,16 @@ int main(int argc, char** argv){
                         p->zones[numZone] = new;
         
                         // Le serveur redonne l'accès à la zone
-                        
-                        if ((semop(idSem,operationsZ+1,1)) < 0){ 
-                            perror("Erreur semop ");
+                        for (size_t i = 0; i < NB_ZONES_MAX; i++)
+                        {
+                            if ((semop(idSem,operationsZ+1,1)) < 0){ 
+                                       perror("Erreur semop ");
                             exit(EXIT_FAILURE);
                         }
+
+                        }
+                        
+                      
                         
                         //printf("test affichage p chez serv après modif\n");
                         //afficheZones(p);        
@@ -430,7 +449,7 @@ int main(int argc, char** argv){
 
                 }
 
-                for (int i = 0; i < NB_ZONES_MAX; ++i) {
+                for (int i = 0; i < NB_ZONES_MAX; i++) {
                     pthread_join(arrayT[i], NULL);
                 }
 
